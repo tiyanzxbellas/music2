@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="referrer" content="no-referrer">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#050507">
+    <title>Musicall</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        * { -webkit-tap-highlight-color: transparent; }
+        
+        :root {
+            --bg-color: #1a1b22;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a5b0;
+            --nm-shadow-flat: 6px 6px 12px #0f1014, -6px -6px 12px #252630;
+            --nm-shadow-inset: inset 4px 4px 8px #0f1014, inset -4px -4px 8px #252630;
+            --nm-shadow-flat-sm: 4px 4px 8px #0f1014, -4px -4px 8px #252630;
+            --nm-shadow-inset-sm: inset 2.5px 2.5px 5px #0f1014, inset -2.5px -2.5px 5px #252630;
+            --border-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .theme-light {
+            --bg-color: #e0e5ec;
+            --text-primary: #2d3748;
+            --text-secondary: #718096;
+            --nm-shadow-flat: 8px 8px 16px #a3b1c6, -8px -8px 16px #ffffff;
+            --nm-shadow-inset: inset 5px 5px 10px #a3b1c6, inset -5px -5px 10px #ffffff;
+            --nm-shadow-flat-sm: 4px 4px 8px #a3b1c6, -4px -4px 8px #ffffff;
+            --nm-shadow-inset-sm: inset 2.5px 2.5px 5px #a3b1c6, inset -2.5px -2.5px 5px #ffffff;
+            --border-color: rgba(0, 0, 0, 0.02);
+        }
+
+        html, body { background: var(--bg-color); color: var(--text-primary); transition: background 0.3s ease, color 0.3s ease; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
+        .fill-current { fill: currentColor; }
+        .filter-tab.active { background: rgba(255,255,255,0.92) !important; color: black !important; box-shadow: 0 4px 20px rgba(255,255,255,0.15); }
+
+        /* ===== Neumorphic Design System (monochrome/clean) ===== */
+        .app-bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:var(--bg-color);transition: background 0.3s ease;}
+        .app-bg span{position:absolute;border-radius:50%;filter:blur(50px);animation:orbBreathe 8s ease-in-out infinite;}
+        .app-bg span:nth-child(1){width:280px;height:280px;background:rgba(255,255,255,0.05);top:-70px;left:-60px;}
+        .app-bg span:nth-child(2){width:320px;height:320px;background:rgba(150,156,168,0.1);bottom:40px;right:-90px;animation-delay:2s;}
+        .app-bg span:nth-child(3){width:240px;height:240px;background:rgba(255,255,255,0.03);top:45%;left:35%;animation-delay:4s;}
+        @keyframes orbBreathe{0%,100%{opacity:.6;transform:scale(1);}50%{opacity:1;transform:scale(1.15);}}
+        
+        html.tab-hidden .app-bg span,
+        html.tab-hidden .chrome-text,
+        html.tab-hidden .btn-chrome::after,
+        html.tab-hidden .shine-sweep::after{animation-play-state:paused;}
+
+        .glass {
+            background: var(--bg-color);
+            box-shadow: var(--nm-shadow-flat);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            transition: all 0.3s ease;
+        }
+        .glass-hover {
+            transition: all 0.25s ease;
+        }
+        .glass-hover:hover {
+            box-shadow: var(--nm-shadow-inset);
+            transform: translateY(1px);
+        }
+        .glass-strong {
+            background: var(--bg-color);
+            box-shadow: var(--nm-shadow-flat);
+            border: 1px solid var(--border-color);
+            border-radius: 1.25rem;
+            transition: all 0.3s ease;
+        }
+        .glass-input {
+            background: var(--bg-color);
+            box-shadow: var(--nm-shadow-inset-sm);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            transition: all 0.3s ease;
+        }
+        .glass-input:focus-within, .glass-input:focus {
+            box-shadow: var(--nm-shadow-inset);
+        }
+        .glass-pane {
+            background: var(--bg-color);
+            transition: all 0.3s ease;
+        }
+        .glass-edge {
+            border: 1px solid var(--border-color);
+        }
+
+        /* Chrome / glossy gray accent */
+        .chrome-text{background:linear-gradient(110deg,#8b9099 0%,#f4f5f6 30%,#ffffff 45%,#aab0b8 65%,#8b9099 100%);background-size:250% auto;-webkit-background-clip:text;background-clip:text;color:transparent;animation:chromeSheen 5s linear infinite;}
+        @keyframes chromeSheen{0%{background-position:0% 50%;}100%{background-position:200% 50%;}}
+
+        .btn-chrome {
+            position: relative;
+            overflow: hidden;
+            background: var(--bg-color);
+            box-shadow: var(--nm-shadow-flat-sm);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 0.75rem;
+            transition: all 0.25s ease;
+        }
+        .btn-chrome:hover {
+            transform: scale(1.02);
+        }
+        .btn-chrome:active {
+            box-shadow: var(--nm-shadow-inset-sm);
+            transform: scale(0.98);
+        }
+        .btn-chrome::after {
+            content:'';position:absolute;top:0;left:-160%;width:55%;height:100%;background:linear-gradient(120deg,transparent,rgba(255,255,255,0.15),transparent);transform:skewX(-20deg);animation:chromeSweep 3.2s ease-in-out infinite;
+        }
+        @keyframes chromeSweep{0%{left:-160%;}55%{left:160%;}100%{left:160%;}}
+
+        .shine-sweep{position:relative;}
+        .shine-sweep::after{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,0.12) 48%,transparent 62%);background-size:250% 250%;animation:sheenMove 4.5s ease-in-out infinite;pointer-events:none;}
+        @keyframes sheenMove{0%{background-position:220% 0%;}100%{background-position:-60% 0%;}}
+
+        .nav-blur {
+            background: var(--bg-color);
+            border-top: 1px solid var(--border-color);
+            box-shadow: var(--nm-shadow-flat);
+            transition: all 0.3s ease;
+        }
+        .artist-photo { width:120px; height:120px; border-radius:50%; object-fit:cover; border:3px solid var(--border-color); box-shadow:var(--nm-shadow-flat); background:var(--bg-color); }
+        @keyframes slideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+        .animate-slide-up{animation:slideUp 0.3s ease-out forwards}
+
+        /* ===== Light Theme Overrides for Elements & Tailwind Utilities ===== */
+        .theme-light body {
+            color: #2d3748 !important;
+        }
+        .theme-light .text-white,
+        .theme-light h1,
+        .theme-light h2,
+        .theme-light h3,
+        .theme-light p.text-white,
+        .theme-light span.text-white,
+        .theme-light div.text-white {
+            color: #2d3748 !important;
+        }
+        .theme-light .text-\[\#cfd3d8\] {
+            color: #4a5568 !important;
+        }
+        .theme-light .text-\[\#b3b3b3\] {
+            color: #718096 !important;
+        }
+        .theme-light .text-\[\#6b7280\] {
+            color: #a0aec0 !important;
+        }
+        .theme-light .text-white\/70,
+        .theme-light .text-white\/80 {
+            color: rgba(45, 55, 72, 0.8) !important;
+        }
+        .theme-light .text-\[\#cfd3d8\]\/70 {
+            color: rgba(74, 85, 104, 0.7) !important;
+        }
+        .theme-light .bg-white\/5,
+        .theme-light .bg-white\/10 {
+            background-color: rgba(0, 0, 0, 0.04) !important;
+        }
+        .theme-light .hover\:bg-white\/5:hover,
+        .theme-light .hover\:bg-white\/10:hover {
+            background-color: rgba(0, 0, 0, 0.06) !important;
+        }
+        .theme-light .border-white\/5,
+        .theme-light .border-white\/10,
+        .theme-light .border-white\/20 {
+            border-color: rgba(0, 0, 0, 0.08) !important;
+        }
+        .theme-light .btn-chrome {
+            background: var(--bg-color) !important;
+            box-shadow: var(--nm-shadow-flat-sm) !important;
+            color: #2d3748 !important;
+            border: 1px solid var(--border-color) !important;
+        }
+        .theme-light .btn-chrome:active {
+            box-shadow: var(--nm-shadow-inset-sm) !important;
+        }
+        .theme-light .btn-chrome::after {
+            display: none !important;
+        }
+        .theme-light .chrome-text {
+            background: linear-gradient(110deg,#4a5568 0%,#2d3748 30%,#1a202c 45%,#4a5568 65%,#2d3748 100%) !important;
+            -webkit-background-clip: text !important;
+            background-clip: text !important;
+            color: transparent !important;
+        }
+        .theme-light .nav-blur {
+            background: var(--bg-color) !important;
+            border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
+        }
+        .theme-light #full-container {
+            background: var(--bg-color) !important;
+        }
+        .theme-light #lyrics-container {
+            background: var(--bg-color) !important;
+        }
+        .theme-light #artist-container {
+            background: var(--bg-color) !important;
+        }
+        .theme-light #mini-container .glass {
+            background: var(--bg-color) !important;
+            box-shadow: var(--nm-shadow-flat) !important;
+        }
+        .theme-light .app-bg { background: #e0e5ec; }
+        .theme-light .app-bg span:nth-child(1) { background: rgba(0,0,0,0.02); }
+        .theme-light .app-bg span:nth-child(2) { background: rgba(0,0,0,0.03); }
+        .theme-light .app-bg span:nth-child(3) { background: rgba(0,0,0,0.01); }
+        
+        /* Navigation Highlight Override */
+        .theme-light .text-\[\#cfd3d8\] {
+            color: #2d3748 !important;
+        }
+        .theme-light .text-\[\#6b7280\] {
+            color: #a0aec0 !important;
+        }
+        .theme-light svg, .theme-light i {
+            stroke: currentColor !important;
+        }
+        .theme-light .fill-current {
+            fill: currentColor !important;
+        }
+
+        /* ===== SPLASH SCREEN - GREEN GLOW ===== */
+        #splash-screen {
+            position: fixed; inset: 0; z-index: 9999;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: radial-gradient(circle at 50% 45%, #0a1a10 0%, #050507 70%);
+            transition: opacity .3s ease, visibility .3s ease;
+        }
+        #splash-screen.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+
+        .splash-rings {
+            position: relative;
+            width: 300px; height: 300px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .splash-rings span {
+            position: absolute; width: 100%; height: 100%;
+            border-radius: 50%;
+            border: 1px solid rgba(30,215,96,0.3);
+            animation: splashWave 2.8s cubic-bezier(.4,0,.2,1) infinite;
+        }
+        .splash-rings span:nth-child(2) { animation-delay: .7s; }
+        .splash-rings span:nth-child(3) { animation-delay: 1.4s; }
+        .splash-rings span:nth-child(4) { animation-delay: 2.1s; }
+
+        @keyframes splashWave {
+            0% { transform: scale(.3); opacity: 0; }
+            15% { opacity: .7; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        .splash-disc {
+            position: absolute;
+            width: 200px; height: 200px;
+            border-radius: 50%;
+            background: repeating-radial-gradient(circle, rgba(30,215,96,0.05) 0px, rgba(30,215,96,0.05) 1px, transparent 2px, transparent 7px);
+            box-shadow: 0 0 60px rgba(30,215,96,0.15), inset 0 0 40px rgba(0,0,0,0.7);
+            animation: splashSpin 7s linear infinite;
+        }
+        .splash-disc::before {
+            content: '';
+            position: absolute; inset: -10px;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, transparent, rgba(30,215,96,0.3), rgba(30,215,96,0.6), rgba(30,215,96,0.3), transparent);
+            animation: splashShimmer 3s linear infinite;
+            filter: blur(15px); z-index: -1;
+        }
+
+        @keyframes splashSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes splashShimmer { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .splash-logo-wrap {
+            position: relative;
+            width: 170px; height: 170px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+            border: 2px solid rgba(30,215,96,0.4);
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+            animation: splashPulse 2.4s ease-in-out infinite;
+            z-index: 2;
+        }
+        .splash-logo-wrap img {
+            width: 85%; height: 85%;
+            object-fit: cover;
+            border-radius: 50%;
+            filter: drop-shadow(0 4px 14px rgba(30,215,96,0.3));
+        }
+        .splash-logo-wrap::after {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: 50%;
+            background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.2) 48%, transparent 62%);
+            background-size: 250% 250%;
+            animation: sheenMove 4.5s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes splashPulse {
+            0%, 100% { box-shadow: 0 0 30px rgba(30,215,96,0.2), inset 0 1px 0 rgba(30,215,96,0.2); }
+            50% { box-shadow: 0 0 60px rgba(30,215,96,0.4), inset 0 1px 0 rgba(30,215,96,0.4); }
+        }
+
+        .splash-title { margin-top: 30px; font-weight: 900; font-size: 1.1rem; letter-spacing: .06em; }
+        .splash-sub { margin-top: 6px; font-size: .7rem; color: #7c828c; letter-spacing: .1em; text-transform: uppercase; opacity: .8; }
+        .splash-bar { margin-top: 24px; width: 120px; height: 2px; border-radius: 2px; background: rgba(30,215,96,0.15); overflow: hidden; }
+        .splash-bar i { display: block; height: 100%; width: 40%; background: linear-gradient(90deg, transparent, #1ed760, transparent); animation: splashBar 1.4s ease-in-out infinite; }
+        @keyframes splashBar { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+
+        /* Premium Lyric Highlighting Styling */
+        .lyric-line {
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: left center;
+            border-left: 3px solid transparent;
+            border-radius: 4px;
+        }
+        .lyric-line.active-lyric {
+            color: var(--text-primary) !important;
+            font-size: 1.15rem !important;
+            font-weight: 800 !important;
+            opacity: 1 !important;
+            border-left-color: #a0a5b0 !important;
+            padding-left: 12px !important;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.03);
+        }
+        .theme-light .lyric-line.active-lyric {
+            border-left-color: #2d3748 !important;
+            background: rgba(0, 0, 0, 0.03);
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Neumorphic Equalizer & Slider styling */
+        .eq-slider {
+            -webkit-appearance: none;
+            width: 8px;
+            height: 150px;
+            background: var(--bg-color);
+            box-shadow: var(--nm-shadow-inset-sm);
+            border-radius: 4px;
+            outline: none;
+            writing-mode: bt-lr; /* IE */
+            -webkit-appearance: slider-vertical; /* WebKit */
+        }
+        .eq-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--bg-color);
+            box-shadow: var(--nm-shadow-flat-sm);
+            border: 2px solid var(--border-color);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .eq-slider::-webkit-slider-thumb:active {
+            transform: scale(1.15);
+            box-shadow: var(--nm-shadow-inset-sm);
+        }
+
+        /* Equalizer live-animated bar visualizer */
+        .eq-bar {
+            width: 5px;
+            height: 10px;
+            background: linear-gradient(to top, #6b7280, #ffffff);
+            border-radius: 2px;
+            transition: height 0.1s ease-out;
+        }
+        .theme-light .eq-bar {
+            background: linear-gradient(to top, #a0aec0, #2d3748);
+        }
+    </style>
+</head>
+<body class="h-[100dvh] w-full bg-transparent text-white font-sans overflow-hidden flex flex-col">
+    <div class="app-bg"><span></span><span></span><span></span></div>
+
+    <div id="splash-screen">
+        <div class="splash-rings"><span></span><span></span><span></span><span></span>
+            <div class="splash-disc"></div>
+            <div class="splash-logo-wrap shine-sweep"><img src="logo.png" alt="logo" onerror="this.style.display='none'" /></div>
+        </div>
+        <div class="splash-title chrome-text">Musicall</div>
+        <div class="splash-sub">Menyiapkan musikmu</div>
+        <div class="splash-bar"><i></i></div>
+    </div>
+
+    <div class="flex-1 overflow-y-auto pb-28 hide-scrollbar" id="main-area">
+        <div id="view-home"></div>
+        <div id="view-search" style="display:none;"></div>
+        <div id="view-library" style="display:none;"></div>
+        <div id="view-dev" style="display:none;"></div>
+    </div>
+
+    <div id="nav-container"></div>
+    <div id="mini-container"></div>
+    <div id="full-container"></div>
+    <div id="lyrics-container"></div>
+    <div id="artist-container"></div>
+    <div id="yt-player" style="position:absolute;top:-9999px;left:-9999px;width:1px;height:1px;"></div>
+    <audio id="audio-player" preload="auto" style="display:none;"></audio>
+
+    <script src="player.js"></script>
+    <script src="home.js"></script>
+    <script src="search.js"></script>
+    <script src="miniplayer.js"></script>
+    <script src="fullplayer.js"></script>
+    <script src="artist.js"></script>
+    <script src="app.js"></script>
+    <script>(function () {
+  function blockEruda() {
+    if (window.eruda) {
+      try { window.eruda.destroy(); } catch (e) {}
+      try { delete window.eruda; } catch (e) { window.eruda = undefined; }
+    }
+
+    document.querySelectorAll(
+      '#eruda, .eruda-container, .eruda-entry-btn, .eruda-dev-tools'
+    ).forEach(el => el.remove());
+
+    document.querySelectorAll('script[src]').forEach(script => {
+      if (script.src.toLowerCase().includes('eruda')) {
+        script.remove();
+      }
+    });
+  }
+
+  blockEruda();
+  // Cek berkala aja (2 detik), TANPA MutationObserver subtree.
+  // MutationObserver subtree:true di document.documentElement sebelumnya
+  // nge-trigger blockEruda() di SETIAP perubahan DOM seluruh app (render
+  // home/search, popup, lyrics, bahkan tiap lucide.createIcons() ganti
+  // ikon) — itu beban utama yang bikin app kerasa lag/berat.
+  setInterval(blockEruda, 2000);
+
+  // Hemat CPU/baterai pas tab di background: pause animasi dekoratif
+  // (orb background, sheen text/tombol) yang gak perlu jalan terus.
+  document.addEventListener('visibilitychange', function () {
+    document.documentElement.classList.toggle('tab-hidden', document.hidden);
+  });
+})();</script>
+</body>
+
+</html>

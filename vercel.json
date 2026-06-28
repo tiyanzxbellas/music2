@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/search", "destination": "/api/search" },
+    { "source": "/api/lyrics", "destination": "/api/lyrics" },
+    { "source": "/api/artist", "destination": "/api/artist" },
+    { "source": "/api/suggest", "destination": "/api/suggest" },
+    { "source": "/api/ytplay", "destination": "/api/ytplay" },
+    { "source": "/api/proxy-audio", "destination": "/api/proxy-audio" },
+    { "source": "/api/stream", "destination": "/api/stream" },
+    { "source": "/player.js", "destination": "/public/player.js" },
+    { "source": "/home.js", "destination": "/public/home.js" },
+    { "source": "/search.js", "destination": "/public/search.js" },
+    { "source": "/miniplayer.js", "destination": "/public/miniplayer.js" },
+    { "source": "/fullplayer.js", "destination": "/public/fullplayer.js" },
+    { "source": "/artist.js", "destination": "/public/artist.js" },
+    { "source": "/app.js", "destination": "/public/app.js" },
+    { "source": "/(.*)", "destination": "/public/$1" }
+  ]
+}
