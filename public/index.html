@@ -5,7 +5,30 @@
     <meta name="referrer" content="no-referrer">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#050507">
+
+    <!-- SEO & Social Media -->
     <title>Musicall</title>
+    <meta name="description" content="Musicall - Nikmati musik favoritmu kapan saja dan di mana saja dengan pemutar musik modern.">
+    <meta name="keywords" content="music, musicall, player, streaming, youtube music">
+    <meta name="author" content="Musicall">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Musicall">
+    <meta property="og:description" content="Nikmati musik favoritmu kapan saja dan di mana saja dengan pemutar musik modern.">
+    <meta property="og:image" content="https://raw.githubusercontent.com/tiyanzxbellas/my-cdn-files/main/8mJM.webp">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:title" content="Musicall">
+    <meta property="twitter:description" content="Nikmati musik favoritmu kapan saja dan di mana saja dengan pemutar musik modern.">
+    <meta property="twitter:image" content="https://raw.githubusercontent.com/tiyanzxbellas/my-cdn-files/main/8mJM.webp">
+
+    <!-- Favicon & PWA -->
+    <link rel="icon" type="image/webp" href="https://raw.githubusercontent.com/tiyanzxbellas/my-cdn-files/main/8mJM.webp">
+    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/tiyanzxbellas/my-cdn-files/main/8mJM.webp">
+    <link rel="manifest" href="/manifest.json">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -418,6 +441,15 @@
     <script src="fullplayer.js"></script>
     <script src="artist.js"></script>
     <script src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.log('Service Worker registration failed: ', err));
+            });
+        }
+    </script>
     <script>(function () {
   function blockEruda() {
     if (window.eruda) {
