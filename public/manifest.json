@@ -1,0 +1,17 @@
+{
+  "name": "Musicall",
+  "short_name": "Musicall",
+  "description": "Musicall - Music Player with YouTube API",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050507",
+  "theme_color": "#050507",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/tiyanzxbellas/my-cdn-files/main/8mJM.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any maskable"
+    }
+  ]
+}
