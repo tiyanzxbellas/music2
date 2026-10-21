@@ -1,7 +1,7 @@
 // ============================================================
 // NANZMUSIFY - CORE PLAYER (FULL FIX)
 // ============================================================
-const API={search:'/api/search',artist:'/api/artist',suggest:'/api/suggest',lyrics:'/api/lyrics',ytplay:'/api/ytplay'};
+const API={search:'/api/search',artist:'/api/artist',album:'/api/album',suggest:'/api/suggest',lyrics:'/api/lyrics',ytplay:'/api/ytplay'};
 const FI='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="#2a2a2a"/><text x="150" y="150" text-anchor="middle" dy=".3em" font-size="50" fill="#6b7280">🎵</text></svg>');
 const S={ht:[],sr:[],ar:[],sq:'',filter:'all',ct:null,pl:[],pi:-1,ps:'',ip:false,il:false,rm:'off',autoNext:true,yp:null,yr:false,iv:null,pt:0,pd:0,at:'home',ld:{type:'none',lines:[]},cli:-1,lo:false,lyricOffset:0,server:'2',playbackRate:1.0,sleepSecondsLeft:0,sleepEndWithTrack:false};
 try{S.server=localStorage.getItem('nanzz_server')||'2';}catch(e){}
@@ -46,7 +46,7 @@ AU.addEventListener('pause',function(){if(S.server==='2'&&!AU.ended){S.ip=false;
 AU.addEventListener('waiting',function(){if(S.server==='2'){S.il=true;UB();}});
 AU.addEventListener('playing',function(){if(S.server==='2'){S.il=false;UB();}});
 AU.addEventListener('ended',function(){if(S.server!=='2')return;ST();if(handleTrackEnded())return;if(S.rm==='one'){AU.currentTime=0;AU.play().catch(function(){});}else if(S.autoNext){NX();}else{S.ip=false;UB();}});
-AU.addEventListener('error',function(){if(S.server==='2'&&AU.src){S.il=false;S.ip=false;UB();showToast('⚠️ Server 2 gagal memutar lagu ini');}});
+AU.addEventListener('error',function(){if(S.server==='2'&&AU.src){S.il=false;S.ip=false;UB();showToast('⚠️ Gagal memutar: coba lagi atau ganti server');}});
 
 function SP(){
     ST();
@@ -79,7 +79,12 @@ function UU(){if(!S.ct)return;var mc=gid('mini-cover'),mt=gid('mini-title'),ma=g
 // PLAY TRACK - AUTO FETCH LYRICS
 function PK(s,i){
     var l=[];if(s==='home1')l=S.ht.slice(0,6);else if(s==='home2')l=S.ht.slice(6,12);else if(s==='search')l=S.sr;else if(s==='playlist')l=S.pl;else if(s==='rec0')l=S.rec0||[];else if(s==='rec1')l=S.rec1||[];else if(s==='rec2')l=S.rec2||[];
-    if(!l[i])return;S.ps=s;S.pl=l;S.pi=i;S.ct=l[i];
+    if(!l[i])return;
+    // Hasil pencarian bisa berupa artis/album/playlist -> buka halaman, bukan diputar
+    var it=l[i];
+    if(it.type==='artist'||it.type==='profile'){if(window.Artist)Artist.open(it.browseId||it.artistId,it.title);return;}
+    if(it.type==='album'||it.type==='single'||it.type==='playlist'){if(window.Artist)Artist.openBrowse(it.browseId,it.title);return;}
+    S.ps=s;S.pl=l;S.pi=i;S.ct=l[i];
     var url=location.origin+'/?play='+S.ct.videoId;history.pushState({},'',url);
     UU();MP.show();S.il=true;UB();
     
@@ -148,10 +153,10 @@ async function playViaServer2(track,resumeAt){
             }
             AU.play().catch(function(){});
         }else{
-            S.il=false;S.ip=false;UB();showToast('⚠️ Server 2 gagal memuat lagu ini');
+            S.il=false;S.ip=false;UB();showToast('⚠️ Gagal memuat audio, coba lagu lain');
         }
     }catch(e){
-        if(S.ct===track){S.il=false;S.ip=false;UB();showToast('⚠️ Server 2 gagal memuat lagu ini');}
+        if(S.ct===track){S.il=false;S.ip=false;UB();showToast('⚠️ Gagal memuat audio, coba lagu lain');}
     }
 }
 
@@ -254,8 +259,10 @@ async function FL(vid){
         var d=await r.json();
         if(d.status&&d.result.lyrics&&d.result.lyrics.lines.length>0){
             S.ld=d.result.lyrics;var html='';
+            var synced=(S.ld.type==='synced');
+            // Lirik tanpa timing (plain) jangan diberi highlight/seek palsu
             S.ld.lines.forEach(function(li,i){
-                html+='<p class="lyric-line text-left px-4 py-2 cursor-pointer" data-time="'+li.time+'" onclick="SLT('+li.time+')">'+es(li.text)+'</p>';
+                html+='<p class="lyric-line text-left px-4 py-2 '+(synced?'cursor-pointer':'opacity-80')+'" data-time="'+li.time+'"'+(synced?' onclick="SLT('+li.time+')"':'')+'>'+es(li.text)+'</p>';
             });
             html+='<p class="text-center text-[#4b5563] text-xs mt-8 mb-4 opacity-50 tracking-widest">——— end ———</p>';
             c.innerHTML=html;l.classList.add('hidden');c.classList.remove('hidden');
@@ -265,6 +272,7 @@ async function FL(vid){
 
 function ULH(ct){
     if(S.ld.lines.length===0)return;
+    if(S.ld.type!=='synced')return;   // lirik plain: tidak ada timing asli
     var ls=document.querySelectorAll('.lyric-line');
     var ni=-1;for(var i=0;i<S.ld.lines.length;i++){if(ct>=S.ld.lines[i].time){ni=i;}}
     // Terapkan offset sinkronisasi manual (tombol +/-) di atas hasil deteksi otomatis
@@ -287,7 +295,11 @@ function ULH(ct){
     });
     S.cli=ei;
 }
-function SLT(t){if(S.yp&&S.yr)S.yp.seekTo(t,true);}
+function SLT(t){
+    if(S.ld&&S.ld.type!=='synced')return;
+    if(S.server==='2'){if(AU&&AU.duration)AU.currentTime=t;}
+    else if(S.yp&&S.yr){S.yp.seekTo(t,true);}
+}
 
 // SINKRONISASI MANUAL LIRIK - tombol + maju 1 lirik, tombol - mundur 1 lirik
 function adjustLyricSync(delta){
@@ -989,7 +1001,7 @@ function downloadCurrentSong(){
             if(d&&d.status&&d.result&&d.result.download&&d.result.download.audio){
                 var audioUrl=d.result.download.audio;
                 var a=document.createElement('a');
-                a.href='/api/proxy-audio?url='+encodeURIComponent(audioUrl);
+                a.href=(d.result.download.proxy||('/api/proxy-audio?url='+encodeURIComponent(audioUrl)));
                 a.download=(S.ct.title||'lagu').replace(/[^a-zA-Z0-9]/g,'_')+'.mp3';
                 document.body.appendChild(a);
                 a.click();

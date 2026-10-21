@@ -1,6 +1,0 @@
-{
-  "name": "Tiyanz",
-  "description": "Musicall - Music Player with YouTube API",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

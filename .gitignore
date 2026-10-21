@@ -1,0 +1,34 @@
+# dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# build output
+dist/
+build/
+.vercel/
+.vercelignore
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# log & artefak tes
+*.log
+api_test.log
+coverage/
+tmp/
+.tmp/
+
+# editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# backup lokal
+*.bak
+*.bak-*
+*.orig

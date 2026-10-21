@@ -1,20 +1,78 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "functions": {
+    "api/*.js": {
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
-    { "source": "/api/search", "destination": "/api/search" },
-    { "source": "/api/lyrics", "destination": "/api/lyrics" },
-    { "source": "/api/artist", "destination": "/api/artist" },
-    { "source": "/api/suggest", "destination": "/api/suggest" },
-    { "source": "/api/ytplay", "destination": "/api/ytplay" },
-    { "source": "/api/proxy-audio", "destination": "/api/proxy-audio" },
-    { "source": "/api/stream", "destination": "/api/stream" },
-    { "source": "/player.js", "destination": "/public/player.js" },
-    { "source": "/home.js", "destination": "/public/home.js" },
-    { "source": "/search.js", "destination": "/public/search.js" },
-    { "source": "/miniplayer.js", "destination": "/public/miniplayer.js" },
-    { "source": "/fullplayer.js", "destination": "/public/fullplayer.js" },
-    { "source": "/artist.js", "destination": "/public/artist.js" },
-    { "source": "/app.js", "destination": "/public/app.js" },
-    { "source": "/(.*)", "destination": "/public/$1" }
+    {
+      "source": "/",
+      "destination": "/public/index.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/public/$1"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)\\.(js|css)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/icons/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(sw|manifest|robots|sitemap)\\.(js|json|txt|xml)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        }
+      ]
+    }
   ]
 }

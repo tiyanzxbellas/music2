@@ -1,64 +1,67 @@
+/**
+ * GET /api/proxy-audio?url=<audio-url>
+ * Proxy streaming audio (dipakai saat equalizer Web Audio aktif -> butuh CORS/izin
+ * cross-origin). Dibatasi hanya host hasil ekstraksi sendiri supaya tidak jadi
+ * open proxy / celah SSRF (sebelumnya ?url=http://169.254.169.254 bisa ditembak).
+ */
 const https = require('https');
 const http = require('http');
+const { URL } = require('url');
+const { applyCors, errJson, isSafeHttpUrl, isAllowedProxyHost, UA } = require('./_lib/core');
 
-function pipeAudioUrl(targetUrl, reqHeaders, res, depth = 0) {
-  if (depth > 5) {
-    res.status(500).send('Too many redirects');
-    return;
-  }
-  try {
-    const client = targetUrl.startsWith('https') ? https : http;
-    const req = client.get(targetUrl, { headers: reqHeaders, rejectUnauthorized: false }, (targetRes) => {
-      if (targetRes.statusCode && targetRes.statusCode >= 300 && targetRes.statusCode < 400 && targetRes.headers.location) {
-        let redirectUrl = targetRes.headers.location;
-        if (!redirectUrl.startsWith('http')) {
-          const parsed = new URL(targetUrl);
-          redirectUrl = parsed.protocol + '//' + parsed.host + redirectUrl;
-        }
-        pipeAudioUrl(redirectUrl, reqHeaders, res, depth + 1);
-        return;
-      }
+const MAX_REDIRECTS = 4;
+const CONNECT_TIMEOUT = 12000;
+const IDLE_TIMEOUT = 45000;
 
-      res.status(targetRes.statusCode || 200);
-      const headersToForward = ['content-type', 'content-length', 'accept-ranges', 'content-range'];
-      headersToForward.forEach(h => {
-        if (targetRes.headers[h]) {
-          res.setHeader(h, targetRes.headers[h]);
+function streamTo(targetUrl, req, res, depth) {
+    if (depth > MAX_REDIRECTS) return errJson(res, 502, 'Terlalu banyak redirect');
+
+    const u = isSafeHttpUrl(targetUrl);
+    if (!u) return errJson(res, 403, 'URL tidak diizinkan');
+    if (!isAllowedProxyHost(u.hostname)) return errJson(res, 403, 'Host tidak diizinkan');
+
+    const client = u.protocol === 'https:' ? https : http;
+    const headers = { 'User-Agent': UA, 'Accept': '*/*' };
+    if (req.headers.range) headers.Range = req.headers.range;
+
+    const up = client.get(u.toString(), { headers, timeout: CONNECT_TIMEOUT }, (upRes) => {
+        const code = upRes.statusCode || 502;
+
+        if (code >= 300 && code < 400 && upRes.headers.location) {
+            upRes.resume();
+            const next = new URL(upRes.headers.location, u).toString();
+            return streamTo(next, req, res, depth + 1);
         }
-      });
-      targetRes.pipe(res);
+
+        if (code >= 400) {
+            upRes.resume();
+            return errJson(res, code === 416 ? 416 : 502, 'Sumber audio menolak permintaan (' + code + ')');
+        }
+
+        res.status(code);
+        ['content-type', 'content-length', 'accept-ranges', 'content-range', 'last-modified', 'etag'].forEach((h) => {
+            if (upRes.headers[h]) res.setHeader(h, upRes.headers[h]);
+        });
+        if (!upRes.headers['content-type']) res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+
+        upRes.on('error', () => { try { res.destroy(); } catch (e) {} });
+        upRes.pipe(res);
+        upRes.setTimeout(IDLE_TIMEOUT, () => { try { upRes.destroy(); } catch (e) {} });
     });
 
-    req.on('error', (err) => {
-      if (!res.headersSent) {
-        res.status(500).send('Proxy error: ' + err.message);
-      }
-    });
-  } catch (err) {
-    if (!res.headersSent) {
-      res.status(500).send('Proxy exception: ' + err.message);
-    }
-  }
+    up.on('timeout', () => { up.destroy(); if (!res.headersSent) errJson(res, 504, 'Sumber audio timeout'); });
+    up.on('error', (e) => { if (!res.headersSent) errJson(res, 502, 'Gagal mengambil audio: ' + e.message); });
+    // Klien menutup koneksi (pindah lagu / seek) -> hentikan upstream biar tidak boros kuota
+    req.on('close', () => { try { up.destroy(); } catch (e) {} });
 }
 
 module.exports = async (req, res) => {
-  const targetUrl = req.query.url;
-  if (!targetUrl) {
-    res.status(400).send('Missing url parameter');
-    return;
-  }
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', '*');
+    if (applyCors(req, res, 'GET, OPTIONS')) return;
+    if (req.method !== 'GET' && req.method !== 'HEAD') return errJson(res, 405, 'Method not allowed');
 
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
+    const raw = String(req.query.url || '').trim();
+    if (!raw) return errJson(res, 400, 'Parameter url wajib diisi');
 
-  const reqHeaders = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36',
-    'Range': req.headers.range || ''
-  };
-  pipeAudioUrl(targetUrl, reqHeaders, res);
+    streamTo(raw, req, res, 0);
 };

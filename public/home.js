@@ -20,12 +20,23 @@ const Home={
     },
     async fetch(){
         Home.showSkeleton();
+        // Query berputar: jangan pakai tahun mati (dulu "lagu viral indonesia 2024")
+        var qs=['lagu viral indonesia','top hits indonesia','lagu populer indonesia','hits terbaru indonesia','lagu galau indonesia'];
+        var q=qs[Math.floor(Math.random()*qs.length)];
         try{
-            var q=['lagu viral indonesia 2024','top hits indonesia','lagu terbaru'][Math.floor(Math.random()*3)];
-            var r=await fetch(API.search+'?query='+encodeURIComponent(q));
+            var r=await fetch(API.search+'?query='+encodeURIComponent(q)+'&filter=songs&limit=24');
             var d=await r.json();
-            if(d.status&&d.result.songs){S.ht=d.result.songs.map(function(s){return{id:s.videoId,videoId:s.videoId,title:cn(s.title),artist:cn(s.artist),artistId:s.artistId||'',cover:s.thumbnail||FI,ytUrl:s.url};});Home.show();}
-        }catch(e){}
+            var items=(d&&d.status&&d.result&&d.result.items)?d.result.items:[];
+            if(items.length===0)throw new Error('kosong');
+            S.ht=items.map(function(s){return{id:s.videoId,videoId:s.videoId,type:s.type,title:cn(s.title),artist:cn(s.artist||s.subtitle),artistId:s.artistId||'',cover:s.thumbnail||FI,duration:s.duration||'',ytUrl:s.url};}).filter(function(t){return !!t.videoId;});
+            Home.show();
+        }catch(e){
+            // Tampilkan status gagal + tombol coba lagi (dulu skeleton berputar selamanya)
+            var g=gid('home-grid'),s2=gid('home-scroll');
+            if(g)g.innerHTML='<div class="col-span-2 text-center py-10 text-[#6b7280]"><i data-lucide="wifi-off" class="w-10 h-10 mx-auto mb-3 opacity-30"></i><p class="text-sm mb-3">Gagal memuat rekomendasi</p><button onclick="Home.refresh()" class="btn-chrome px-5 py-2 rounded-full text-xs font-bold">Coba lagi</button></div>';
+            if(s2)s2.innerHTML='';
+            lucide.createIcons();
+        }
     },
     show(){
         var g=gid('home-grid'),s=gid('home-scroll');if(!g||!s)return;

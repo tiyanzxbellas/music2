@@ -1,69 +1,110 @@
+/**
+ * GET /api/artist?id=UC...  -> profil artis (lagu, album, single, video, serupa)
+ * Id album (MPRE...) / playlist (VL...) otomatis dialihkan ke handler /api/album.
+ */
 const https = require('https');
-const API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+const { ttlCache, applyCors, errJson } = require('./_lib/core');
+const albumHandler = require('./album');
 
-function getRunsText(r) { return Array.isArray(r) ? r.map(x=>x.text||'').join('') : ''; }
-function removeKeysRecursive(o, k) { if(!o||typeof o!=='object')return; if(Array.isArray(o)){o.forEach(i=>removeKeysRecursive(i,k));return;} for(const key of Object.keys(o)){if(k.includes(key))delete o[key];else if(typeof o[key]==='object')removeKeysRecursive(o[key],k);} }
+const API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+const cache = ttlCache(120, 15 * 60 * 1000);
+
+const getRunsText = (r) => (Array.isArray(r) ? r.map((x) => x.text || '').join('') : '');
 
 function makeRequest(o, p) {
     return new Promise((resolve, reject) => {
-        const r = https.request(o, res => { let d=''; res.on('data', c=>d+=c); res.on('end', ()=>{ try{resolve(JSON.parse(d));}catch(e){resolve(d);} }); });
-        r.on('error', reject); r.on('timeout', ()=>{ r.destroy(); reject(new Error('Timeout')); });
-        if(p) r.write(JSON.stringify(p)); r.end();
+        const r = https.request(o, (res) => {
+            let d = '';
+            res.on('data', (c) => (d += c));
+            res.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { resolve(d); } });
+        });
+        r.on('error', reject);
+        r.on('timeout', () => { r.destroy(); reject(new Error('Timeout')); });
+        if (p) r.write(JSON.stringify(p));
+        r.end();
     });
 }
 
 module.exports = async (req, res) => {
-    if (req.method === 'OPTIONS') { res.status(200).end(); return; }
-    if (req.method !== 'GET') { res.status(405).json({ status: false, message: 'Method not allowed' }); return; }
-    const artistId = (req.query.id || '').trim();
-    if (!artistId) { res.status(400).json({ status: false, message: 'Parameter id wajib diisi' }); return; }
+    if (applyCors(req, res, 'GET, OPTIONS')) return;
+    if (req.method !== 'GET') return errJson(res, 405, 'Method not allowed');
+
+    const artistId = String(req.query.id || '').trim();
+    if (!artistId) return errJson(res, 400, 'Parameter id wajib diisi');
+
+    // Album / single / playlist -> pakai handler album (dulu hasilnya kosong)
+    if (/^(MPRE|VL|OLAK|RD)/.test(artistId)) return albumHandler(req, res);
+
+    const hit = cache.get(artistId);
+    if (hit) {
+        res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=1800');
+        return res.status(200).json(hit);
+    }
 
     try {
         const data = await makeRequest({
-            hostname: 'music.youtube.com', path: '/youtubei/v1/browse?key='+API_KEY, method: 'POST',
+            hostname: 'music.youtube.com', path: '/youtubei/v1/browse?key=' + API_KEY, method: 'POST',
             headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0 Chrome/120.0.0.0', 'Origin': 'https://music.youtube.com' },
-            rejectUnauthorized: false, timeout: 15000
+            timeout: 15000
         }, { context: { client: { clientName: 'WEB_REMIX', clientVersion: '1.20240101.00.00', hl: 'en', gl: 'ID' } }, browseId: artistId });
 
-        let name='', thumbnails=[];
-        const topSongs=[], topAlbums=[], topSingles=[], topVideos=[], featuredOn=[], similarArtists=[];
-        try {
-            const h = data?.header?.musicImmersiveHeaderRenderer || data?.header?.musicVisualHeaderRenderer || {};
-            name = getRunsText(h.title?.runs||[]);
-            thumbnails = h.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
-            const tabs = data?.contents?.singleColumnBrowseResultsRenderer?.tabs || [];
-            for (const tab of tabs) {
-                const contents = tab?.tabRenderer?.content?.sectionListRenderer?.contents || [];
-                for (const sec of contents) {
-                    if (sec.musicShelfRenderer) {
-                        for (const item of sec.musicShelfRenderer.contents || []) {
-                            if (item.musicResponsiveListItemRenderer) {
-                                const i = item.musicResponsiveListItemRenderer;
-                                topSongs.push({ videoId: i.playlistItemData?.videoId||'', title: getRunsText(i.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs||[]), artist: getRunsText(i.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs||[]), thumbnails: i.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails||[] });
-                            }
-                        }
+        let name = '', thumbnails = [];
+        const topSongs = [], topAlbums = [], topSingles = [], topVideos = [], featuredOn = [], similarArtists = [];
+
+        const h = (data && data.header && (data.header.musicImmersiveHeaderRenderer || data.header.musicVisualHeaderRenderer)) || {};
+        name = getRunsText(h.title && h.title.runs) || getRunsText(h.title && h.title.text && h.title.text.runs);
+        thumbnails = (h.thumbnail && h.thumbnail.musicThumbnailRenderer && h.thumbnail.musicThumbnailRenderer.thumbnail && h.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails) || [];
+
+        const tabs = (data && data.contents && data.contents.singleColumnBrowseResultsRenderer && data.contents.singleColumnBrowseResultsRenderer.tabs) || [];
+        for (const tab of tabs) {
+            const contents = (tab.tabRenderer && tab.tabRenderer.content && tab.tabRenderer.content.sectionListRenderer && tab.tabRenderer.content.sectionListRenderer.contents) || [];
+            for (const sec of contents) {
+                if (sec.musicShelfRenderer) {
+                    for (const item of sec.musicShelfRenderer.contents || []) {
+                        const i = item.musicResponsiveListItemRenderer;
+                        if (!i) continue;
+                        const fc = i.flexColumns || [];
+                        topSongs.push({
+                            videoId: (i.playlistItemData && i.playlistItemData.videoId) || '',
+                            title: getRunsText(fc[0] && fc[0].musicResponsiveListItemFlexColumnRenderer && fc[0].musicResponsiveListItemFlexColumnRenderer.text && fc[0].musicResponsiveListItemFlexColumnRenderer.text.runs),
+                            artist: getRunsText(fc[1] && fc[1].musicResponsiveListItemFlexColumnRenderer && fc[1].musicResponsiveListItemFlexColumnRenderer.text && fc[1].musicResponsiveListItemFlexColumnRenderer.text.runs),
+                            thumbnails: (i.thumbnail && i.thumbnail.musicThumbnailRenderer && i.thumbnail.musicThumbnailRenderer.thumbnail && i.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails) || []
+                        });
                     }
-                    if (sec.musicCarouselShelfRenderer) {
-                        const car = sec.musicCarouselShelfRenderer;
-                        const ht = getRunsText(car.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs||[]);
-                        for (const item of car.contents || []) {
-                            if (item.musicTwoRowItemRenderer) {
-                                const it = item.musicTwoRowItemRenderer;
-                                const parsed = { name: getRunsText(it.title?.runs||[]), artist: getRunsText(it.subtitle?.runs||[]), browseId: it.navigationEndpoint?.browseEndpoint?.browseId||'', thumbnails: it.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails||[] };
-                                if (/album/i.test(ht)) topAlbums.push(parsed);
-                                else if (/singles|ep/i.test(ht)) topSingles.push(parsed);
-                                else if (/video/i.test(ht)) { parsed.videoId = it.navigationEndpoint?.watchEndpoint?.videoId||''; topVideos.push(parsed); }
-                                else if (/featured|playlist/i.test(ht)) featuredOn.push(parsed);
-                                else if (/similar|fans/i.test(ht)) similarArtists.push(parsed);
-                            }
-                        }
+                }
+                if (sec.musicCarouselShelfRenderer) {
+                    const car = sec.musicCarouselShelfRenderer;
+                    const ht = getRunsText(car.header && car.header.musicCarouselShelfBasicHeaderRenderer && car.header.musicCarouselShelfBasicHeaderRenderer.title && car.header.musicCarouselShelfBasicHeaderRenderer.title.runs);
+                    for (const item of car.contents || []) {
+                        const it = item.musicTwoRowItemRenderer;
+                        if (!it) continue;
+                        const parsed = {
+                            name: getRunsText(it.title && it.title.runs),
+                            artist: getRunsText(it.subtitle && it.subtitle.runs),
+                            browseId: (it.navigationEndpoint && it.navigationEndpoint.browseEndpoint && it.navigationEndpoint.browseEndpoint.browseId) || '',
+                            thumbnails: (it.thumbnailRenderer && it.thumbnailRenderer.musicThumbnailRenderer && it.thumbnailRenderer.musicThumbnailRenderer.thumbnail && it.thumbnailRenderer.musicThumbnailRenderer.thumbnail.thumbnails) || []
+                        };
+                        if (/album/i.test(ht)) topAlbums.push(parsed);
+                        else if (/singles|ep/i.test(ht)) topSingles.push(parsed);
+                        else if (/video/i.test(ht)) { parsed.videoId = (it.navigationEndpoint && it.navigationEndpoint.watchEndpoint && it.navigationEndpoint.watchEndpoint.videoId) || ''; topVideos.push(parsed); }
+                        else if (/featured|playlist/i.test(ht)) featuredOn.push(parsed);
+                        else if (/similar|fans/i.test(ht)) similarArtists.push(parsed);
                     }
                 }
             }
-        } catch(e) {}
+        }
 
-        const result = { status: true, input: { id: artistId }, result: { artistId, name, thumbnails, topSongs, topAlbums, topSingles, topVideos, featuredOn, similarArtists, creator: 'Nanzz' } };
-        removeKeysRecursive(result, ['creator']);
-        res.status(200).json(result);
-    } catch(e) { res.status(500).json({ status: false, message: 'Gagal: '+e.message }); }
+        if (!name) return errJson(res, 404, 'Profil artis tidak ditemukan');
+
+        const body = {
+            status: true,
+            input: { id: artistId },
+            result: { artistId, name, thumbnails, topSongs, topAlbums, topSingles, topVideos, featuredOn, similarArtists }
+        };
+        cache.set(artistId, body);
+        res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=1800');
+        return res.status(200).json(body);
+    } catch (e) {
+        return errJson(res, 500, 'Gagal: ' + e.message);
+    }
 };
