@@ -23,12 +23,15 @@ const TYPE_MAP = {
 };
 const FILTER_MAP = {
     all: null,
-    songs: ['song', 'single'],
+    // "single" adalah rilisan album-like: dulu ikut tab Lagu, sekarang masuk tab Album/EP.
+    songs: ['song'],
     videos: ['video'],
     artists: ['artist', 'profile'],
-    albums: ['album'],
+    albums: ['album', 'single', 'ep'],
     playlists: ['playlist']
 };
+// Alias filter dari klien lama / query manual
+const FILTER_ALIAS = { track: 'songs', lagu: 'songs', video: 'videos', artis: 'artists', album: 'albums', ep: 'albums', playlist: 'playlists', semua: 'all' };
 
 const runs = (r) => (Array.isArray(r) ? r.map((x) => x.text || '').join('') : '');
 const clean = (s) => String(s || '').replace(/\s*\u2022\s*$/, '').trim();
@@ -133,7 +136,8 @@ module.exports = async (req, res) => {
     const query = String(req.query.query || req.query.q || '').trim();
     if (!query) return errJson(res, 400, 'Parameter query diperlukan');
 
-    const filter = String(req.query.filter || 'all').toLowerCase();
+    let filter = String(req.query.filter || 'all').toLowerCase();
+    if (FILTER_ALIAS[filter]) filter = FILTER_ALIAS[filter];
     const limit = Math.min(parseInt(req.query.limit, 10) || 24, 60);
 
     try {

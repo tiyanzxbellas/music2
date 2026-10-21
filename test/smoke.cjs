@@ -1,5 +1,18 @@
 // Harness tes semua handler tanpa express (req/res tiruan).
+// Tes menembak upstream asli (YouTube Music / lrclib), jadi butuh internet.
+// Exit code != 0 kalau ada pemeriksaan yang gagal -> CI jadi penjaga regresi.
 const path = require('path');
+const API_DIR = path.join(__dirname, '..', 'api');
+const ALBUM_ID = 'MPREb_7FNmIeIV9kf';        // Tulus - Manusia (10 track)
+const PLAYLIST_ID = 'VLRDCLAK5uy_kR2pM9ewJOAAqSZLidzflfoknDik6dinM';
+const ARTIST_ID = 'UC_DHlXllTSMB8pTC38_leFg'; // Tulus
+const LYRICS_ID = 'CnUpMOuhTr0';              // Tulus - Pamit (synced)
+
+let pass = 0, fail = 0;
+function check(name, cond, info) {
+  if (cond) { pass++; console.log('  ok   ' + name); }
+  else { fail++; console.log('  FAIL ' + name + (info !== undefined ? ' -> ' + JSON.stringify(info) : '')); }
+}
 function mkres() {
   const r = { headers: {}, code: 200 };
   r.status = (c) => { r.code = c; return r; };
@@ -9,36 +22,93 @@ function mkres() {
   return r;
 }
 async function call(name, query, method) {
-  const h = require(path.join(__dirname, '..', 'api', name + '.js'));
+  const h = require(path.join(API_DIR, name + '.js'));
   const res = mkres();
   const t = Date.now();
   await h({ method: method || 'GET', query: query || {}, headers: {}, body: {} }, res);
-  const ms = Date.now() - t;
-  let info = '';
-  const b = res.body;
-  if (name === 'search') info = `total=${b.result && b.result.total} items=${b.result && b.result.items.length} types=${JSON.stringify((b.result?.items||[]).reduce((a,i)=>(a[i.type]=(a[i.type]||0)+1,a),{}))}`;
-  else if (name === 'album') info = `title=${b.result && b.result.title} tracks=${b.result && b.result.total} first=${b.result?.tracks?.[0]?.title}`;
-  else if (name === 'artist') info = `name=${b.result && b.result.name} songs=${b.result?.topSongs?.length} albums=${b.result?.topAlbums?.length}`;
-  else if (name === 'lyrics') info = `title=${b.result && b.result.title} type=${b.result?.lyrics?.type} lines=${b.result?.lyrics?.lines?.length}`;
-  else if (name === 'suggest') info = `n=${Array.isArray(b) ? b.length : '?'} ${JSON.stringify(b).slice(0,60)}`;
-  else if (name === 'ytplay' || name === 'stream') info = JSON.stringify(b.result || b).slice(0, 120);
-  else if (name === 'proxy-audio') info = JSON.stringify(b).slice(0, 80);
-  console.log(`[${name}] ${res.code} ${ms}ms ${info}`);
-  return { code: res.code, body: b };
+  return { code: res.code, body: res.body || {}, ms: Date.now() - t, headers: res.headers };
 }
+
 (async () => {
-  await call('search', { query: 'tulus' });
-  await call('search', { query: 'tulus', filter: 'videos' });
-  await call('search', { query: 'tulus', filter: 'artists' });
-  await call('album', { id: 'MPREb_wkOQCl4WIAV' });
-  await call('artist', { id: 'UC_DHlXllTSMB8pTC38_leFg' });
-  await call('artist', { id: 'MPREb_wkOQCl4WIAV' }); // harus jadi album
-  await call('lyrics', { id: 'E7kHvjvU6JY' });
-  await call('suggest', { q: 'tulus' });
-  await call('ytplay', { q: 'jNQXAC9IVRw' });
-  await call('stream', { q: 'https://youtu.be/E7kHvjvU6JY' }, 'GET');
-  await call('proxy-audio', { url: 'http://169.254.169.254/latest/meta-data/' }); // HARUS 403
-  await call('proxy-audio', { url: 'https://example.com/x.mp3' });               // HARUS 403
-  await call('search', {});                                                      // HARUS 400
-  process.exit(0);
+  console.log('\n# search');
+  let r = await call('search', { query: 'tulus' });
+  const items = (r.body.result && r.body.result.items) || [];
+  check('search 200 + items', r.code === 200 && items.length > 0, items.length);
+  check('search item punya type', items.every((i) => !!i.type), items[0] && items[0].type);
+  const counts = {};
+  for (const f of ['songs', 'videos', 'albums', 'artists']) {
+    const q = await call('search', { query: 'tulus', filter: f });
+    const tot = q.body.result ? q.body.result.total : -1;
+    counts[f] = tot;
+    check('filter ' + f + ' menyaring (total > 0)', tot > 0, tot);
+    check('filter ' + f + ' isi sesuai tipe', (q.body.result.items || []).every((i) => ({
+      songs: ['song'], videos: ['video'], albums: ['album', 'single', 'ep'], artists: ['artist', 'profile']
+    })[f].indexOf(i.type) !== -1), (q.body.result.items || []).map((i) => i.type));
+  }
+  check('filter songs tidak lagi mencampur single', counts.songs > 0 && counts.albums > 0, counts);
+  check('alias filter (lagu/album) jalan',
+    (await call('search', { query: 'tulus', filter: 'lagu' })).body.result.total === counts.songs &&
+    (await call('search', { query: 'tulus', filter: 'album' })).body.result.total === counts.albums);
+  check('search tanpa query -> 400', (await call('search', {})).code === 400);
+
+  console.log('\n# album');
+  r = await call('album', { id: ALBUM_ID });
+  const alb = r.body.result || {};
+  const tr = alb.tracks || [];
+  check('album 200', r.code === 200, r.code);
+  check('album judul + artis header', alb.title === 'Manusia' && alb.artist === 'Tulus', [alb.title, alb.artist]);
+  check('album kind/year', alb.kind === 'album' && alb.year === '2022', [alb.kind, alb.year]);
+  check('album 10 track', tr.length === 10, tr.length);
+  check('semua track punya durasi (fixedColumns)', tr.every((t) => /^\d+:\d{2}(:\d{2})?$/.test(t.duration)), tr.map((t) => t.duration));
+  check('semua track punya artis', tr.every((t) => !!t.artist), tr[0] && t_artist(tr[0]));
+  check('track punya thumbnail (fallback cover)', tr.every((t) => !!t.thumbnail));
+  check('track punya videoId', tr.every((t) => /^[A-Za-z0-9_-]{11}$/.test(t.videoId)));
+
+  console.log('\n# album (playlist)');
+  r = await call('album', { id: PLAYLIST_ID });
+  const pl = r.body.result || {};
+  check('playlist 200', r.code === 200, r.code);
+  check('playlist shelf terbaca (>0 track)', (pl.tracks || []).length > 0, (pl.tracks || []).length);
+  check('track playlist punya durasi', (pl.tracks || []).filter((t) => !!t.duration).length >= (pl.tracks || []).length - 1);
+
+  console.log('\n# artist');
+  r = await call('artist', { id: ARTIST_ID });
+  const art = r.body.result || {};
+  check('artist 200 + nama', r.code === 200 && art.name === 'Tulus', art.name);
+  check('artist punya lagu/album', (art.topSongs || []).length > 0 && (art.topAlbums || []).length > 0);
+  check('album subtitle bukan tahun saja', /Album/.test((art.topAlbums || [{}])[0].artist || ''), (art.topAlbums || [{}])[0]);
+  const viaAlbum = await call('artist', { id: ALBUM_ID });
+  check('artist?id=MPRE... dialihkan ke album', !!(viaAlbum.body.result && viaAlbum.body.result.tracks));
+
+  console.log('\n# lyrics');
+  r = await call('lyrics', { id: LYRICS_ID });
+  const ly = (r.body.result && r.body.result.lyrics) || {};
+  check('lyrics 200', r.code === 200, r.code);
+  check('lirik ada isinya', (ly.lines || []).length > 0, ly.type);
+  check('field album bukan jumlah penonton', !/views|pemutaran|likes|suka/i.test((r.body.result || {}).album || ''), (r.body.result || {}).album);
+  check('lyrics tanpa id -> 400', (await call('lyrics', {})).code === 400);
+
+  console.log('\n# audio engine');
+  r = await call('ytplay', { q: 'jNQXAC9IVRw' });
+  check('ytplay 200 + download.audio', r.code === 200 && !!(r.body.result && r.body.result.download && r.body.result.download.audio), r.code);
+  if (r.body.result) check('ytplay proxy ada', /^\/api\/proxy-audio\?url=/.test(r.body.result.download.proxy));
+  check('stream (alias lama) 200', (await call('stream', { q: 'jNQXAC9IVRw' })).code === 200);
+  check('ytplay tanpa query -> 400', (await call('ytplay', {})).code === 400);
+
+  console.log('\n# proxy-audio (keamanan SSRF)');
+  for (const bad of ['http://169.254.169.254/latest/meta-data/', 'http://127.0.0.1:8080/x', 'https://example.com/x.mp3', 'file:///etc/passwd']) {
+    const p = await call('proxy-audio', { url: bad });
+    check('tolak ' + bad, p.code === 403 || p.code === 400, p.code);
+  }
+  check('tanpa url -> 400', (await call('proxy-audio', {})).code === 400);
+
+  console.log('\n# suggest');
+  r = await call('suggest', { q: 'tulus' });
+  check('suggest 200', r.code === 200, r.code);
+
+  console.log('\n=========================================');
+  console.log(`  ${pass} ok, ${fail} gagal`);
+  process.exit(fail ? 1 : 0);
 })();
+
+function t_artist(t) { return { title: t.title, artist: t.artist }; }

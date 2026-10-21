@@ -107,7 +107,7 @@ Semua endpoint mengembalikan JSON. `status: true|false`, `message` saat error.
 | Query | Default | Keterangan |
 |---|---|---|
 | `query` | — | kata kunci (wajib) |
-| `filter` | `all` | `all`, `songs`, `videos`, `artists`, `albums`, `playlists` |
+| `filter` | `all` | `all`, `songs`, `videos`, `artists`, `albums`, `playlists` (alias: `lagu`, `video`, `artis`, `album`, `ep`, `playlist`, `semua`) |
 | `limit` | `24` | maksimum 60 |
 
 ```json
@@ -125,15 +125,23 @@ Semua endpoint mengembalikan JSON. `status: true|false`, `message` saat error.
 
 `type` bisa: `song`, `video`, `single`, `album`, `artist`, `profile`, `playlist`, `episode`, `podcast`.
 
+Pembagian tab: **Lagu** = `song`, **Video** = `video`, **Album** = `album` + `single` + `ep`
+(rilisan album-like), **Artis** = `artist` + `profile`.
+
 ### `GET /api/album?id=MPRE…|VL…`
-Tracklist album/single/playlist.
+Tracklist album/single/playlist (`MPRE…` album & single, `VL…` playlist/radio).
 
 ```json
 { "status": true,
-  "result": { "title": "Tulus", "subtitle": "Single • 2022", "kind": "single", "year": "2022",
-              "artist": "Tulus", "artistId": "UC...", "thumbnail": "https://...", "total": 1,
-              "tracks": [{ "videoId": "UPQi3gTrT60", "title": "Tulus", "duration": "3:12" }] } }
+  "result": { "title": "Manusia", "subtitle": "Album • 2022", "kind": "album", "year": "2022",
+              "artist": "Tulus", "artistId": "UC...", "thumbnail": "https://...", "total": 10,
+              "tracks": [{ "videoId": "cA7Gzh2ISL0", "title": "Tujuh Belas", "artist": "Tulus",
+                           "duration": "4:15", "plays": "37 jt pemutaran", "thumbnail": "https://..." }] } }
 ```
+
+`artist` diambil dari `straplineTextOne` header (subtitle album tidak memuat nama artis), durasi dari
+`fixedColumns` (YouTube Music memakai format `4.15`), dan track album tidak punya thumbnail sendiri
+sehingga memakai cover album.
 
 ### `GET /api/artist?id=UC…`
 `{ status, result: { name, thumbnails, topSongs[], topAlbums[], topSingles[], topVideos[], featuredOn[], similarArtists[] } }`
@@ -146,6 +154,8 @@ Tracklist album/single/playlist.
               "lyrics": { "type": "synced", "lines": [{ "time": 13.28, "text": "Perjalanan membawamu" }] } } }
 ```
 `type`: `synced` (ada timing), `plain` (tanpa timing), `none`.
+Field `album` dikosongkan kalau upstream hanya mengirim baris penonton/like
+(mis. `"Rick Astley • 1.8B views"`), bukan nama album.
 
 ### `GET /api/suggest?q=<kata>`
 `["tulus", "tulus teh hijau", …]` — array saran (dipakai autocomplete).
@@ -204,6 +214,19 @@ Ringkasan masalah yang ditemukan saat audit dan sudah diperbaiki:
 | 15 | Sisa proyek AI Studio: `index.html` root, `src/App.tsx` kosong, `vite.config.ts`, `metadata.json`, dependency React/Vite/Tailwind/GenAI tidak terpakai | dihapus; `package.json` bersih (produksi hanya `express`) |
 | 16 | `npm run build` menyalin `public/*` tapi tidak ada `dist` di deploy, Vercel mendeteksi framework **vite** | preset **Other**, `vercel.json` dirapikan (rewrite `/(.*) → /public/$1`, `maxDuration` 30 s, header keamanan) |
 | 17 | Tidak ada `robots.txt`, `sitemap.xml`, `.gitignore`, `LICENSE`, dan README hanya 35 byte | ditambahkan semua + README lengkap ini |
+
+## Perbaikan versi 3.1.1
+
+Hasil pemeriksaan ulang seluruh handler terhadap respons live YouTube Music (2026-10-21):
+
+| # | Masalah | Bukti sebelum | Perbaikan |
+|---|---|---|---|
+| 1 | Track album **tanpa durasi & tanpa artis** | `Manusia` (10 track): `filled: 0/10` — semua `duration: ""`, `artist: ""` | durasi dibaca dari `fixedColumns` (format `4.15` → `4:15`, prioritas label aksesibilitas `4 menit, 15 detik`), artis fallback ke header album, thumbnail fallback ke cover |
+| 2 | **Playlist kosong** (`VL…` / radio) | `Presenting Tulus` → `total: 0`, `tracks: []` | `fetchBrowse` sekarang juga mengumpulkan `musicPlaylistShelfRenderer` (bukan hanya `musicShelfRenderer`) |
+| 3 | Tab **Album** selalu kosong | `?filter=albums` → `total: 0` padahal ada rilisan `Single` | `albums` = `album`+`single`+`ep`; `songs` = `song` saja; tambah alias filter (`lagu`, `album`, dll) |
+| 4 | Field `album` di `/api/lyrics` berisi jumlah penonton | `"album": "Rick Astley • 1.8B views • 19M likes"` | dibersihkan: `album` dikosongkan kalau baris itu penonton/like |
+| 5 | Subtitle album di halaman artis cuma tahun | `topAlbums[0].artist = "2022"` | dinormalisasi jadi `Album • 2022` + field `year` |
+| 6 | Smoke test cuma mencetak hasil (regresi tidak ketahuan) | CI hijau walau handler rusak | `test/smoke.cjs` ditulis ulang: **42 pemeriksaan ber-assert**, exit code ≠ 0 kalau gagal |
 
 ## Batasan & catatan hukum
 

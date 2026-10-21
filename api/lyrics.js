@@ -112,7 +112,10 @@ module.exports = async (req, res) => {
             const item = t.tabRenderer.content.musicQueueRenderer.content.playlistPanelRenderer.contents[0].playlistPanelVideoRenderer || {};
             title = getRunsText(item.title && item.title.runs);
             artist = getRunsText((item.shortBylineText && item.shortBylineText.runs) || (item.longBylineText && item.longBylineText.runs));
-            album = getRunsText(item.longBylineText && item.longBylineText.runs);
+            // longBylineText = "Rick Astley \u2022 1.8B views \u2022 19M likes" (bukan nama album).
+            // Hanya dipakai kalau memang bukan baris penonton/like.
+            const byline = getRunsText(item.longBylineText && item.longBylineText.runs);
+            album = /views|pemutaran|likes|suka|subscriber|pelanggan/i.test(byline) ? '' : byline;
             const len = getRunsText(item.lengthText && item.lengthText.runs);
             const m = len.match(/(\d+):(\d{2})/);
             if (m) durationSec = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);

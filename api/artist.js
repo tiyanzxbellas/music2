@@ -78,9 +78,13 @@ module.exports = async (req, res) => {
                     for (const item of car.contents || []) {
                         const it = item.musicTwoRowItemRenderer;
                         if (!it) continue;
+                        const sub = getRunsText(it.subtitle && it.subtitle.runs);
+                        const yearOnly = /^\d{4}$/.test(sub.trim());
                         const parsed = {
                             name: getRunsText(it.title && it.title.runs),
-                            artist: getRunsText(it.subtitle && it.subtitle.runs),
+                            // Untuk album/single subtitle YT Music cuma tahun ("2022").
+                            artist: yearOnly ? 'Album \u2022 ' + sub.trim() : sub,
+                            year: yearOnly ? sub.trim() : '',
                             browseId: (it.navigationEndpoint && it.navigationEndpoint.browseEndpoint && it.navigationEndpoint.browseEndpoint.browseId) || '',
                             thumbnails: (it.thumbnailRenderer && it.thumbnailRenderer.musicThumbnailRenderer && it.thumbnailRenderer.musicThumbnailRenderer.thumbnail && it.thumbnailRenderer.musicThumbnailRenderer.thumbnail.thumbnails) || []
                         };
