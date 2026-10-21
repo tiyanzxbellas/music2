@@ -124,6 +124,14 @@ async function call(name, query, method) {
   check('search link -> judul ikut video (Despacito)',
     !!(r.body.result && r.body.result.items && /despacito/i.test(r.body.result.items[0].title)));
 
+  console.log('\n# health & lirik tanpa id');
+  r = await call('health', {});
+  check('health 200 + version', r.code === 200 && !!r.body.version, r.code);
+  check('health cache singkat', /max-age=0/.test(r.headers['cache-control'] || ''), r.headers['cache-control']);
+  r = await call('lyrics', { title: 'Tujuh Belas', artist: 'Tulus' });
+  check('lyrics?title= & artist= 200', r.code === 200 && !!(r.body.result && r.body.result.lyrics), r.code);
+  check('lyrics tanpa id & judul -> 400', (await call('lyrics', {})).code === 400);
+
   console.log('\n# suggest');
   r = await call('suggest', { q: 'tulus' });
   check('suggest 200', r.code === 200, r.code);

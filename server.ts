@@ -15,6 +15,7 @@ import suggestHandler from './api/suggest.js';
 import ytplayHandler from './api/ytplay.js';
 import streamHandler from './api/stream.js';
 import proxyAudioHandler from './api/proxy-audio.js';
+import healthHandler from './api/health.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -33,6 +34,7 @@ app.get('/api/suggest', suggestHandler as any);
 app.all('/api/ytplay', ytplayHandler as any);
 app.get('/api/stream', streamHandler as any);
 app.all('/api/proxy-audio', proxyAudioHandler as any);
+app.get('/api/health', healthHandler as any);
 app.all('/api/*', (_req, res) => res.status(404).json({ status: false, message: 'Endpoint tidak ditemukan' }));
 
 // --- Static (public/) ---

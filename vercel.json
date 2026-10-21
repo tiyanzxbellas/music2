@@ -16,6 +16,10 @@
       "destination": "/api/notfound"
     },
     {
+      "source": "/(.*\\..*)",
+      "destination": "/api/notfound"
+    },
+    {
       "source": "/(.*)",
       "destination": "/public/$1"
     }

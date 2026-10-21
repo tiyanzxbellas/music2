@@ -104,7 +104,34 @@ module.exports = async (req, res) => {
     if (req.method !== 'GET') return errJson(res, 405, 'Method not allowed');
 
     const videoId = String(req.query.id || '').trim();
-    if (!videoId) return errJson(res, 400, 'Parameter id wajib diisi');
+
+    // Tanpa id: lirik tetap bisa dicari langsung dari judul/artis (?title=&artist=).
+    // Ditambahkan supaya pemanggil lama / luar tidak dapat 400 hanya karena tidak punya videoId.
+    if (!videoId) {
+        const title = String(req.query.title || req.query.track || req.query.q || '').trim();
+        const artist = String(req.query.artist || req.query.artist_name || '').trim();
+        if (!title) return errJson(res, 400, 'Parameter id (atau title/artist) wajib diisi');
+
+        const qKey = 'q:' + title.toLowerCase() + '|' + artist.toLowerCase();
+        const qHit = cache.get(qKey);
+        if (qHit) {
+            res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+            return res.status(200).json(qHit);
+        }
+        try {
+            const lyrics = await findLyrics(title, artist, 0);
+            const body = {
+                status: true,
+                input: { title, artist },
+                result: { videoId: '', title, artist, album: '', lyrics }
+            };
+            if (lyrics.lines.length) cache.set(qKey, body);
+            res.setHeader('Cache-Control', 'public, max-age=1800, s-maxage=86400');
+            return res.status(200).json(body);
+        } catch (e) {
+            return errJson(res, 500, 'Gagal: ' + e.message);
+        }
+    }
 
     const hit = cache.get(videoId);
     if (hit) {

@@ -10,7 +10,7 @@ module.exports = async (req, res) => {
         available: [
             '/api/search?query=', '/api/album?id=', '/api/artist?id=',
             '/api/track?id=', '/api/lyrics?id=', '/api/suggest?q=',
-            '/api/ytplay (POST)', '/api/stream?q=', '/api/proxy-audio?url='
+            '/api/ytplay?q=', '/api/stream?q=', '/api/proxy-audio?url=', '/api/health'
         ]
     });
 };

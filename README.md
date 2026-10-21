@@ -4,7 +4,7 @@ Pemutar musik web (PWA) yang memakai **YouTube Music** sebagai sumber katalog: c
 putar audio, lihat **lirik sinkron**, atur **equalizer**, kecepatan putar, timer tidur, dan simpan playlist
 pribadi di browser. Tanpa API key, tanpa login, tanpa database.
 
-- **Demo produksi:** <https://music.tyn.web.id>
+- **Demo produksi:** <https://music.tyn.web.id> (alias `www.music.tyn.web.id` → 308 ke domain utama)
 - **Repo:** <https://github.com/tiyanzxbellas/music2>
 
 ---
@@ -172,11 +172,25 @@ sehingga memakai cover album.
               "lyrics": { "type": "synced", "lines": [{ "time": 13.28, "text": "Perjalanan membawamu" }] } } }
 ```
 `type`: `synced` (ada timing), `plain` (tanpa timing), `none`.
+
+Tanpa `id`, lirik juga bisa dicari langsung dari judul/artis (tidak 400):
+
+```
+GET /api/lyrics?title=Tujuh%20Belas&artist=Tulus
+```
 Field `album` dikosongkan kalau upstream hanya mengirim baris penonton/like
 (mis. `"Rick Astley • 1.8B views"`), bukan nama album.
 
 ### `GET /api/suggest?q=<kata>`
 `["tulus", "tulus teh hijau", …]` — array saran (dipakai autocomplete).
+
+### `GET /api/health`
+```json
+{ "status": true, "app": "Musicall", "version": "3.2.1", "node": "v24.x",
+  "region": "sin1", "uptimeSec": 0, "time": "2026-10-21T04:54:30.737Z",
+  "endpoints": ["/api/search?q=", "/api/album?id=", "…"] }
+```
+Tidak menembak upstream — aman dipakai untuk pemantauan.
 
 ### `POST /api/ytplay` (atau `GET /api/ytplay?q=`)
 Body: `{ "query": "<videoId | URL YouTube | teks pencarian>" }`
@@ -293,7 +307,17 @@ Audit ulang khusus **kesetaraan fitur Server 1 & Server 2** (2026-10-21):
 | 10 | Lirik di-fetch ulang dengan cache-buster acak tiap lagu | `?id=…&t=Date.now()` | cache server (24 jam) dipakai, hemat request, lirik tetap sama |
 
 Tes: `test/player-logic.cjs` (30 pemeriksaan logika dua mesin, tanpa browser) + `npm run smoke`
-(sekarang 45 pemeriksaan, termasuk `/api/track` dan "tempel link YouTube").
+(sekarang 55 pemeriksaan, termasuk `/api/track`, `/api/health`, dan "tempel link YouTube").
+
+## Perbaikan versi 3.2.1
+
+Hasil pemeriksaan ulang setelah deploy 3.2.0 (2026-10-21):
+
+| # | Masalah | Perbaikan |
+|---|---|---|
+| 1 | `/api/lyrics?title=&artist=` balas **400** "Parameter id wajib diisi" — pemanggil tanpa `videoId` tidak bisa apa-apa | tanpa `id`, lirik dicari langsung dari `title`/`artist` (cache terpisah); `id` tetap jalur utama dan tidak berubah |
+| 2 | Aset yang tidak ada (mis. `/player.js.bak`) dibalas **200 + index.html**, bukan 404 | rewrite baru: path ber-ekstensi file yang filenya tidak ada → `/api/notfound` (404 JSON) |
+| 3 | Tidak ada cara cepat memastikan API hidup tanpa menembak upstream | endpoint baru `GET /api/health` (versi, node, region, uptime, daftar endpoint) |
 
 ## Batasan & catatan hukum
 
