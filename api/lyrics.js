@@ -40,15 +40,25 @@ function parsePlainLyrics(p) {
     return String(p).split('\n').map((t) => t.trim()).filter((t) => t).map((t, i) => ({ time: Math.round(i * 3.8 * 100) / 100, text: t }));
 }
 
+/**
+ * LRCLIB kadang berisi kiriman sampah (mis. satu baris "probe" untuk
+ * Never Gonna Give You Up). Lirik yang isinya kurang dari 3 baris atau
+ * total < 30 karakter dianggap tidak layak tampil.
+ */
+function tooThin(lines) {
+    const total = lines.reduce((n, l) => n + String(l.text || '').trim().length, 0);
+    return lines.length < 3 || total < 30;
+}
+
 function pickLyrics(entry) {
     if (!entry) return { type: 'none', lines: [] };
     if (entry.syncedLyrics) {
         const lines = parseSyncedLyrics(entry.syncedLyrics);
-        if (lines.length) return { type: 'synced', lines };
+        if (lines.length && !tooThin(lines)) return { type: 'synced', lines };
     }
     if (entry.plainLyrics) {
         const lines = parsePlainLyrics(entry.plainLyrics);
-        if (lines.length) return { type: 'plain', lines };
+        if (lines.length && !tooThin(lines)) return { type: 'plain', lines };
     }
     return { type: 'none', lines: [] };
 }
@@ -79,9 +89,12 @@ async function findLyrics(title, artist, durationSec) {
     // 2) pencarian bebas
     const res = await lrclib('/api/search?q=' + encodeURIComponent(title + ' ' + (artist || '')));
     if (Array.isArray(res) && res.length) {
-        // utamakan yang punya syncedLyrics
-        const best = res.find((x) => x.syncedLyrics) || res[0];
-        return pickLyrics(best);
+        // utamakan yang punya syncedLyrics, tapi lewati hasil yang isinya sampah
+        const order = res.filter((x) => x && x.syncedLyrics).concat(res.filter((x) => x && !x.syncedLyrics));
+        for (const cand of order) {
+            const picked = pickLyrics(cand);
+            if (picked.lines.length) return picked;
+        }
     }
     return { type: 'none', lines: [] };
 }

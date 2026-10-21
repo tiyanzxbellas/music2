@@ -87,6 +87,11 @@ async function call(name, query, method) {
   check('lirik ada isinya', (ly.lines || []).length > 0, ly.type);
   check('field album bukan jumlah penonton', !/views|pemutaran|likes|suka/i.test((r.body.result || {}).album || ''), (r.body.result || {}).album);
   check('lyrics tanpa id -> 400', (await call('lyrics', {})).code === 400);
+  check('lirik sampah (<3 baris) tidak ditampilkan', ly.type === 'none' || (ly.lines || []).length >= 3, ly.lines && ly.lines.length);
+  const junk = await call('lyrics', { id: 'dQw4w9WgXcQ' }); // LRCLIB berisi kiriman "probe"
+  check('tidak membalas satu baris "probe"',
+    junk.body.result && (junk.body.result.lyrics.type === 'none' || (junk.body.result.lyrics.lines || []).length >= 3),
+    junk.body.result && junk.body.result.lyrics);
 
   console.log('\n# audio engine');
   r = await call('ytplay', { q: 'jNQXAC9IVRw' });

@@ -226,7 +226,8 @@ Hasil pemeriksaan ulang seluruh handler terhadap respons live YouTube Music (202
 | 3 | Tab **Album** selalu kosong | `?filter=albums` → `total: 0` padahal ada rilisan `Single` | `albums` = `album`+`single`+`ep`; `songs` = `song` saja; tambah alias filter (`lagu`, `album`, dll) |
 | 4 | Field `album` di `/api/lyrics` berisi jumlah penonton | `"album": "Rick Astley • 1.8B views • 19M likes"` | dibersihkan: `album` dikosongkan kalau baris itu penonton/like |
 | 5 | Subtitle album di halaman artis cuma tahun | `topAlbums[0].artist = "2022"` | dinormalisasi jadi `Album • 2022` + field `year` |
-| 6 | Smoke test cuma mencetak hasil (regresi tidak ketahuan) | CI hijau walau handler rusak | `test/smoke.cjs` ditulis ulang: **42 pemeriksaan ber-assert**, exit code ≠ 0 kalau gagal |
+| 6 | Lirik sampah dari LRCLIB tampil apa adanya | `dQw4w9WgXcQ` → 1 baris `"probe"` | lirik < 3 baris / < 30 karakter dianggap tidak layak, lanjut ke kandidat berikutnya |
+| 7 | Smoke test cuma mencetak hasil (regresi tidak ketahuan) | CI hijau walau handler rusak | `test/smoke.cjs` ditulis ulang: **44 pemeriksaan ber-assert**, exit code ≠ 0 kalau gagal |
 
 ## Batasan & catatan hukum
 
