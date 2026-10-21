@@ -12,6 +12,10 @@
       "destination": "/public/index.html"
     },
     {
+      "source": "/api/(.*)",
+      "destination": "/api/notfound"
+    },
+    {
       "source": "/(.*)",
       "destination": "/public/$1"
     }
