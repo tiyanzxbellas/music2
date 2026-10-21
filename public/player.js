@@ -82,8 +82,9 @@ function PK(s,i){
     if(!l[i])return;
     // Hasil pencarian bisa berupa artis/album/playlist -> buka halaman, bukan diputar
     var it=l[i];
-    if(it.type==='artist'||it.type==='profile'){if(window.Artist)Artist.open(it.browseId||it.artistId,it.title);return;}
-    if(it.type==='album'||it.type==='single'||it.type==='playlist'){if(window.Artist)Artist.openBrowse(it.browseId,it.title);return;}
+    // `const Artist` bukan properti window -> cek lewat typeof
+    if(it.type==='artist'||it.type==='profile'){if(typeof Artist!=='undefined'&&Artist)Artist.open(it.browseId||it.artistId,it.title);return;}
+    if(it.type==='album'||it.type==='single'||it.type==='playlist'){if(typeof Artist!=='undefined'&&Artist)Artist.openBrowse(it.browseId,it.title);return;}
     S.ps=s;S.pl=l;S.pi=i;S.ct=l[i];
     var url=location.origin+'/?play='+S.ct.videoId;history.pushState({},'',url);
     UU();MP.show();S.il=true;UB();
