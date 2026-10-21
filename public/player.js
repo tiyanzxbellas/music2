@@ -3,9 +3,13 @@
 // ============================================================
 const API={search:'/api/search',artist:'/api/artist',album:'/api/album',suggest:'/api/suggest',lyrics:'/api/lyrics',ytplay:'/api/ytplay'};
 const FI='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="#2a2a2a"/><text x="150" y="150" text-anchor="middle" dy=".3em" font-size="50" fill="#6b7280">🎵</text></svg>');
-const S={ht:[],sr:[],ar:[],sq:'',filter:'all',ct:null,pl:[],pi:-1,ps:'',ip:false,il:false,rm:'off',autoNext:true,yp:null,yr:false,iv:null,pt:0,pd:0,at:'home',ld:{type:'none',lines:[]},cli:-1,lo:false,lyricOffset:0,server:'2',playbackRate:1.0,sleepSecondsLeft:0,sleepEndWithTrack:false};
+const S={ht:[],sr:[],ar:[],sq:'',filter:'all',ct:null,pl:[],pi:-1,ps:'',ip:false,il:false,rm:'off',autoNext:true,yp:null,yr:false,iv:null,pt:0,pd:0,at:'home',ld:{type:'none',lines:[]},cli:-1,lo:false,lyricOffset:0,server:'2',engine:'2',playbackRate:1.0,sleepSecondsLeft:0,sleepEndWithTrack:false,shuffle:false,volume:1,muted:false,ytDegraded:false,albumTracks:[],artistTracks:[],eqBands:[0,0,0,0,0],activePreset:'Normal',eqOn:false};
 try{S.server=localStorage.getItem('nanzz_server')||'2';}catch(e){}
+try{S.engine=S.server;}catch(e){S.engine='2';}
 try{S.playbackRate=parseFloat(localStorage.getItem('nanzz_playback_rate'))||1.0;}catch(e){S.playbackRate=1.0;}
+try{var _vol=parseFloat(localStorage.getItem('nanzz_volume'));S.volume=isNaN(_vol)?1:Math.min(1,Math.max(0,_vol));}catch(e){S.volume=1;}
+try{S.muted=localStorage.getItem('nanzz_muted')==='1';}catch(e){S.muted=false;}
+try{S.shuffle=localStorage.getItem('nanzz_shuffle')==='1';}catch(e){S.shuffle=false;}
 function fm(s){if(isNaN(s))return"0:00";const m=Math.floor(s/60),se=Math.floor(s%60);return m+':'+(se<10?'0':'')+se;}
 function es(t){if(!t)return'';const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
 function cn(t){if(!t)return'Unknown';return t.replace(/[^\x20-\x7E\xA0-\xFF\u0100-\uFFFF]/g,'').replace(/\s*-\s*Topic$/i,'').trim()||'Unknown';}
@@ -18,13 +22,13 @@ function updateOG(title,image){
 }
 
 const yt=document.createElement('script');yt.src="https://www.youtube.com/iframe_api";document.head.appendChild(yt);
-function onYouTubeIframeAPIReady(){S.yp=new YT.Player('yt-player',{height:'0',width:'0',playerVars:{autoplay:1,controls:0,enablejsapi:1,playsinline:1},events:{onReady:function(){S.yr=true;},onStateChange:ys}});}
+function onYouTubeIframeAPIReady(){S.yp=new YT.Player('yt-player',{height:'0',width:'0',playerVars:{autoplay:1,controls:0,enablejsapi:1,playsinline:1},events:{onReady:function(){S.yr=true;applyVolume();},onStateChange:ys,onError:function(e){ytFailed(e&&e.data);}}});}
 var ytFallbackTimeout = null;
 function ys(e){
-    if(S.server!=='1')return;
+    if(S.engine!=='1')return;
     if(e.data===1){
         if(ytFallbackTimeout){clearTimeout(ytFallbackTimeout);ytFallbackTimeout=null;}
-        S.ip=true;S.il=false;UB();SP();
+        S.ip=true;S.il=false;UB();SP();applyVolume();
         try{if(S.yp&&typeof S.yp.setPlaybackRate==='function')S.yp.setPlaybackRate(S.playbackRate||1.0);}catch(ex){}
     }else if(e.data===2){
         S.ip=false;UB();ST();
@@ -41,17 +45,22 @@ function ys(e){
 // ---- AUDIO ENGINE SERVER 2 (elemen <audio> native, sumber stream dari /api/ytplay) ----
 var AU=gid('audio-player');
 if(!AU){AU=document.createElement('audio');AU.id='audio-player';AU.preload='auto';AU.style.display='none';document.body.appendChild(AU);}
-AU.addEventListener('play',function(){if(S.server==='2'){S.ip=true;S.il=false;UB();SP();try{AU.playbackRate=S.playbackRate||1.0;}catch(ex){}}});
-AU.addEventListener('pause',function(){if(S.server==='2'&&!AU.ended){S.ip=false;UB();ST();}});
-AU.addEventListener('waiting',function(){if(S.server==='2'){S.il=true;UB();}});
-AU.addEventListener('playing',function(){if(S.server==='2'){S.il=false;UB();}});
-AU.addEventListener('ended',function(){if(S.server!=='2')return;ST();if(handleTrackEnded())return;if(S.rm==='one'){AU.currentTime=0;AU.play().catch(function(){});}else if(S.autoNext){NX();}else{S.ip=false;UB();}});
-AU.addEventListener('error',function(){if(S.server==='2'&&AU.src){S.il=false;S.ip=false;UB();showToast('⚠️ Gagal memutar: coba lagi atau ganti server');}});
+AU.addEventListener('play',function(){if(S.engine==='2'){S.ip=true;S.il=false;UB();SP();try{AU.playbackRate=S.playbackRate||1.0;}catch(ex){}}});
+AU.addEventListener('pause',function(){if(S.engine==='2'&&!AU.ended){S.ip=false;UB();ST();}});
+AU.addEventListener('waiting',function(){if(S.engine==='2'){S.il=true;UB();}});
+AU.addEventListener('playing',function(){if(S.engine==='2'){S.il=false;UB();}});
+AU.addEventListener('ended',function(){if(S.engine!=='2')return;ST();if(handleTrackEnded())return;if(S.rm==='one'){AU.currentTime=0;AU.play().catch(function(){});}else if(S.autoNext){NX();}else{S.ip=false;UB();}});
+AU.addEventListener('error',function(){
+    if(S.engine!=='2'||!AU.src)return;
+    S.il=false;S.ip=false;UB();
+    if(recoverServer2())return;
+    showToast('⚠️ Gagal memutar lagu ini. Coba lagi, ganti lagu, atau pakai Server 1.');
+});
 
 function SP(){
     ST();
     S.iv=setInterval(function(){
-        if(S.server==='2'){
+        if(S.engine==='2'){
             if(!AU.paused){S.pt=AU.currentTime||0;S.pd=AU.duration||0;renderProgress();}
         }else if(S.yp&&S.yr&&S.ip){
             S.pt=S.yp.getCurrentTime()||0;S.pd=S.yp.getDuration()||0;renderProgress();
@@ -78,7 +87,7 @@ function UU(){if(!S.ct)return;var mc=gid('mini-cover'),mt=gid('mini-title'),ma=g
 
 // PLAY TRACK - AUTO FETCH LYRICS
 function PK(s,i){
-    var l=[];if(s==='home1')l=S.ht.slice(0,6);else if(s==='home2')l=S.ht.slice(6,12);else if(s==='search')l=S.sr;else if(s==='playlist')l=S.pl;else if(s==='rec0')l=S.rec0||[];else if(s==='rec1')l=S.rec1||[];else if(s==='rec2')l=S.rec2||[];
+    var l=[];if(s==='home1')l=S.ht.slice(0,6);else if(s==='home2')l=S.ht.slice(6,12);else if(s==='search')l=S.sr;else if(s==='playlist')l=S.pl;else if(s==='rec0')l=S.rec0||[];else if(s==='rec1')l=S.rec1||[];else if(s==='rec2')l=S.rec2||[];else if(s==='album')l=S.albumTracks||[];else if(s==='artist')l=S.artistTracks||[];else if(s==='queue')l=S.pl;
     if(!l[i])return;
     // Hasil pencarian bisa berupa artis/album/playlist -> buka halaman, bukan diputar
     var it=l[i];
@@ -103,7 +112,8 @@ function loadTrack(track,resumeAt){
         clearTimeout(ytFallbackTimeout);
         ytFallbackTimeout=null;
     }
-    if(S.server==='2'){
+    if(S.ytDegraded && S.engine==='1'){S.engine='2';}
+    if(S.engine==='2'){
         if(S.yp&&S.yr){try{S.yp.stopVideo();}catch(e){}}
         playViaServer2(track,resumeAt);
     }else{
@@ -116,9 +126,8 @@ function loadTrack(track,resumeAt){
             ytFallbackTimeout=setTimeout(function(){
                 if(S.ct===track && !S.ip){
                     console.log('YouTube Player gagal memutar, mengalihkan ke Server 2...');
-                    showToast('⚡ Mengalihkan ke Server 2 untuk pemutaran lebih lancar...');
-                    S.server='2';
-                    try{localStorage.setItem('nanzz_server','2');}catch(e){}
+                    S.ytDegraded=true;S.engine='2';
+                    showToast('⚡ Server 1 tidak bisa memutar lagu ini — dialihkan ke Server 2 (pengaturanmu tidak diubah)');
                     try{S.yp.stopVideo();}catch(e){}
                     playViaServer2(track,resumeAt);
                 }
@@ -131,39 +140,78 @@ function loadTrack(track,resumeAt){
     }
 }
 // SERVER 2 - ambil direct audio stream dari /api/ytplay lalu putar via elemen <audio>
-async function playViaServer2(track,resumeAt){
+var _retry={id:null,n:0};
+async function playViaServer2(track,resumeAt,forceProxy){
     S.il=true;UB();
+    if(_retry.id!==track.videoId){_retry.id=track.videoId;_retry.n=0;}
+    var ytUrl=track.ytUrl||('https://youtube.com/watch?v='+track.videoId);
+    var ctl=(typeof AbortController!=='undefined')?new AbortController():null;
+    var to=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},25000):null;
     try{
-        var ytUrl=track.ytUrl||('https://youtube.com/watch?v='+track.videoId);
-        var r=await fetch(API.ytplay,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:ytUrl})});
+        var r=await fetch(API.ytplay,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:ytUrl}),signal:ctl?ctl.signal:undefined});
+        if(to){clearTimeout(to);to=null;}
         var d=await r.json();
         if(S.ct!==track)return; // user udah pindah lagu sebelum fetch ini selesai
-        if(d&&d.status&&d.result&&d.result.download&&d.result.download.audio){
-            var audioUrl = d.result.download.audio;
-            if (audioCtx) {
-                // Gunakan proxy audio agar Web Audio Equalizer dapat memproses audio cross-origin
-                AU.src = '/api/proxy-audio?url=' + encodeURIComponent(audioUrl);
-            } else {
-                // Lepaskan properti crossOrigin agar browser memutar link langsung tanpa hambatan CORS
-                AU.removeAttribute('crossorigin');
-                AU.src = audioUrl;
-            }
-            if(resumeAt){
-                var onMeta=function(){AU.currentTime=resumeAt;AU.removeEventListener('loadedmetadata',onMeta);};
-                AU.addEventListener('loadedmetadata',onMeta);
-            }
-            AU.play().catch(function(){});
-        }else{
-            S.il=false;S.ip=false;UB();showToast('⚠️ Gagal memuat audio, coba lagu lain');
+        if(!r.ok||!d||!d.status||!d.result||!d.result.download||!d.result.download.audio){
+            S.il=false;S.ip=false;UB();
+            showToast('⚠️ Gagal memuat audio'+(d&&d.message?': '+d.message:' — coba lagi'));
+            return;
         }
+        var audioUrl = d.result.download.audio;
+        S._audioUrl = audioUrl;
+        // Equalizer (Web Audio) butuh audio same-origin -> wajib lewat proxy.
+        if (forceProxy || audioCtx || S.eqOn) {
+            AU.setAttribute('crossorigin','anonymous');
+            AU.src = '/api/proxy-audio?url=' + encodeURIComponent(audioUrl);
+        } else {
+            // Putar link CDN langsung (tanpa CORS) supaya mulai bunyi lebih cepat
+            AU.removeAttribute('crossorigin');
+            AU.src = audioUrl;
+        }
+        applyVolume();
+        try{AU.playbackRate=S.playbackRate||1.0;}catch(ex){}
+        if(resumeAt){
+            var onMeta=function(){try{AU.currentTime=resumeAt;}catch(e){}AU.removeEventListener('loadedmetadata',onMeta);};
+            AU.addEventListener('loadedmetadata',onMeta);
+        }
+        AU.play().catch(function(){});
     }catch(e){
-        if(S.ct===track){S.il=false;S.ip=false;UB();showToast('⚠️ Gagal memuat audio, coba lagu lain');}
+        if(to)clearTimeout(to);
+        if(S.ct!==track)return;
+        S.il=false;S.ip=false;UB();
+        showToast(e&&e.name==='AbortError'?'⚠️ Server terlalu lama merespons, coba lagi':'⚠️ Gagal memuat audio, coba lagi');
     }
+}
+
+// Pemulihan otomatis Server 2: putar ulang lewat proxy -> ambil ulang link audio baru.
+function recoverServer2(){
+    if(!S.ct)return false;
+    if(_retry.id!==S.ct.videoId){_retry.id=S.ct.videoId;_retry.n=0;}
+    if(_retry.n>=2)return false;
+    var step=_retry.n++;
+    if(step===0){
+        showToast('🔄 Link CDN gagal, mencoba lewat proxy…');
+        playViaServer2(S.ct,S.pt||0,true);
+    }else{
+        showToast('🔄 Mengambil ulang link audio…');
+        playViaServer2(S.ct,S.pt||0,!!audioCtx||S.eqOn);
+    }
+    return true;
+}
+
+// Server 1 gagal memutar (video dibatasi/dihapus/autoplay diblokir) -> dialihkan ke Server 2
+function ytFailed(code){
+    if(S.engine!=='1'||!S.ct)return;
+    if(ytFallbackTimeout){clearTimeout(ytFallbackTimeout);ytFallbackTimeout=null;}
+    S.ytDegraded=true;S.engine='2';
+    try{S.yp.stopVideo();}catch(e){}
+    showToast('⚡ Server 1 tidak bisa memutar lagu ini (kode '+(code||'?')+') — dialihkan ke Server 2');
+    playViaServer2(S.ct,S.pt||0);
 }
 
 function TP(){
     if(!S.ct)return;
-    if(S.server==='2'){
+    if(S.engine==='2'){
         if(!AU.src)return;
         if(AU.paused)AU.play().catch(function(){});else AU.pause();
     }else{
@@ -171,17 +219,21 @@ function TP(){
         S.ip?S.yp.pauseVideo():S.yp.playVideo();
     }
 }
-function NX(){if(!S.pl.length)return;var ni=S.pi+1;if(ni>=S.pl.length){if(S.rm==='all')ni=0;else{S.ip=false;UB();return;}}PK(S.ps,ni);}
+function NX(){
+    if(!S.pl.length)return;
+    if(S.shuffle&&S.pl.length>1){var ri=S.pi;while(ri===S.pi)ri=Math.floor(Math.random()*S.pl.length);PK(S.ps,ri);return;}
+    var ni=S.pi+1;if(ni>=S.pl.length){if(S.rm==='all')ni=0;else{S.ip=false;UB();return;}}PK(S.ps,ni);
+}
 function PV(){
     if(!S.pl.length)return;
     if(S.pt>3){
-        if(S.server==='2'){AU.currentTime=0;}else if(S.yp&&S.yr){S.yp.seekTo(0);}
+        if(S.engine==='2'){AU.currentTime=0;}else if(S.yp&&S.yr){S.yp.seekTo(0);}
         return;
     }
     var pi=S.pi-1;if(pi<0)pi=S.pl.length-1;PK(S.ps,pi);
 }
 function SK(v){
-    if(S.server==='2'){
+    if(S.engine==='2'){
         if(AU.duration)AU.currentTime=(parseFloat(v)/100)*AU.duration;
     }else{
         if(S.yp&&S.yr&&S.pd>0)S.yp.seekTo((parseFloat(v)/100)*S.pd,true);
@@ -199,7 +251,7 @@ function shareTrack(){if(!S.ct||!S.ct.videoId)return;var url=location.origin+'/?
 function setServer(v){
     if(S.server===v){closeServerSettings();return;}
     var prevTime=S.pt||0,hadTrack=!!S.ct;
-    S.server=v;
+    S.server=v;S.engine=v;S.ytDegraded=false;
     try{localStorage.setItem('nanzz_server',v);}catch(e){}
     if(v==='1'&&'Notification' in window&&Notification.permission==='default'){
         Notification.requestPermission().then(function(perm){
@@ -256,7 +308,7 @@ async function FL(vid){
     S.ld={type:'none',lines:[]};S.cli=-1;S.lyricOffset=0;updateSyncBadge();
     try{
         // Tambah timestamp biar gak cache
-        var r=await fetch(API.lyrics+'?id='+vid+'&t='+Date.now());
+        var r=await fetch(API.lyrics+'?id='+vid);
         var d=await r.json();
         if(d.status&&d.result.lyrics&&d.result.lyrics.lines.length>0){
             S.ld=d.result.lyrics;var html='';
@@ -298,7 +350,7 @@ function ULH(ct){
 }
 function SLT(t){
     if(S.ld&&S.ld.type!=='synced')return;
-    if(S.server==='2'){if(AU&&AU.duration)AU.currentTime=t;}
+    if(S.engine==='2'){if(AU&&AU.duration)AU.currentTime=t;}
     else if(S.yp&&S.yr){S.yp.seekTo(t,true);}
 }
 
@@ -454,7 +506,7 @@ function triggerSleep() {
     S.sleepEndWithTrack = false;
     updateSleepBadge();
     
-    if (S.server === '2') {
+    if (S.engine === '2') {
         if (AU) {
             try { AU.pause(); } catch(e){}
         }
@@ -596,7 +648,7 @@ function setPlaybackSpeed(speed) {
 
 function applyPlaybackSpeed() {
     var speed = S.playbackRate || 1.0;
-    if (S.server === '2') {
+    if (S.engine === '2') {
         if (AU) {
             try { AU.playbackRate = speed; } catch(e) {}
         }
@@ -622,11 +674,16 @@ function closePlaybackSpeed() {
 
 function openEqualizer() {
     if (document.getElementById('equalizer-popup')) return;
-    
+
     if (!S.eqBands) S.eqBands = [0, 0, 0, 0, 0];
     if (!S.activePreset) S.activePreset = 'Normal';
-    
-    if (S.server === '2') {
+
+    // Equalizer memakai Web Audio API: hanya bisa memproses audio elemen <audio>
+    // (Server 2). Di Server 1 audionya ada di dalam iframe YouTube, tidak bisa di-tap.
+    if (S.engine !== '2') { openEqServerNotice(); return; }
+
+    S.eqOn = true;
+    if (S.engine === '2') {
         var hadAudioCtx = !!audioCtx;
         setupWebAudioEQ();
         if (!hadAudioCtx && audioCtx && S.ct && !AU.paused) {
@@ -1014,3 +1071,62 @@ function downloadCurrentSong(){
         })
         .catch(function(){showToast('⚠️ Gagal mengunduh lagu');});
 }
+
+// ============================================================
+// VOLUME, MUTE & SHUFFLE - berlaku di Server 1 dan Server 2
+// ============================================================
+function applyVolume(){
+    var v=S.muted?0:(S.volume==null?1:S.volume);
+    try{if(AU){AU.volume=v;AU.muted=!!S.muted;}}catch(e){}
+    try{if(S.yp&&S.yr&&typeof S.yp.setVolume==='function')S.yp.setVolume(Math.round(v*100));}catch(e){}
+    var sl=gid('volume-slider');
+    if(sl&&document.activeElement!==sl)sl.value=Math.round(v*100);
+    var lb=gid('volume-label');if(lb)lb.innerText=Math.round(v*100)+'%';
+    var ic=gid('volume-icon-wrap');
+    if(ic){
+        ic.innerHTML='<i data-lucide="'+(S.muted||v===0?'volume-x':(v<0.5?'volume-1':'volume-2'))+'" class="w-5 h-5"></i>';
+        try{lucide.createIcons();}catch(e){}
+    }
+}
+function setVolume(val){
+    var v=parseFloat(val);if(isNaN(v))return;
+    S.volume=Math.min(1,Math.max(0,v/100));
+    if(S.volume>0)S.muted=false;
+    try{localStorage.setItem('nanzz_volume',S.volume);localStorage.setItem('nanzz_muted',S.muted?'1':'0');}catch(e){}
+    applyVolume();
+}
+function toggleMute(){
+    S.muted=!S.muted;
+    try{localStorage.setItem('nanzz_muted',S.muted?'1':'0');}catch(e){}
+    applyVolume();
+    showToast(S.muted?'🔇 Suara dimatikan':'🔊 Suara aktif');
+}
+function syncShuffleUI(){
+    var b=gid('btn-shuffle'),d=gid('shuffle-dot');
+    if(b){if(S.shuffle)b.classList.add('text-[#cfd3d8]');else b.classList.remove('text-[#cfd3d8]');}
+    if(d){if(S.shuffle)d.classList.remove('hidden');else d.classList.add('hidden');}
+}
+function toggleShuffle(){
+    S.shuffle=!S.shuffle;
+    try{localStorage.setItem('nanzz_shuffle',S.shuffle?'1':'0');}catch(e){}
+    syncShuffleUI();
+    showToast(S.shuffle?'🔀 Urutan acak: ON':'➡️ Urutan normal: ON');
+}
+// Equalizer di Server 1: fitur tidak dihapus, hanya diberi penjelasan + tombol pindah server
+function openEqServerNotice(){
+    var old=gid('eq-server-notice');if(old)old.remove();
+    var popup=document.createElement('div');
+    popup.id='eq-server-notice';
+    popup.className='fixed inset-0 z-[320] flex items-end justify-center bg-black/60';
+    popup.onclick=function(e){if(e.target===popup)popup.remove();};
+    popup.innerHTML='<div class="w-full max-w-md rounded-t-3xl p-6 border-t border-white/10 glass-strong" style="animation:slideUp 0.3s ease-out forwards; background: var(--bg-color);">'+
+        '<div class="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4"></div>'+
+        '<h3 class="font-black text-white text-lg mb-1">Equalizer butuh Server 2</h3>'+
+        '<p class="text-[#b3b3b3] text-xs leading-relaxed mb-5">Server 1 memutar lagu lewat pemutar YouTube, jadi audionya tidak bisa diproses browser. Pindah ke Server 2 untuk memakai equalizer, preset, dan visualizer — pengaturan server bisa kamu ubah kapan saja.</p>'+
+        '<button onclick="document.getElementById(\'eq-server-notice\').remove();setServer(\'2\');setTimeout(openEqualizer,700)" class="w-full btn-chrome py-3.5 font-bold rounded-full mb-2">Pindah ke Server 2 &amp; buka Equalizer</button>'+
+        '<button onclick="document.getElementById(\'eq-server-notice\').remove()" class="w-full py-3 border border-white/20 text-white rounded-full">Nanti saja</button>'+
+    '</div>';
+    document.body.appendChild(popup);
+    try{lucide.createIcons();}catch(e){}
+}
+try{applyVolume();syncShuffleUI();}catch(e){}

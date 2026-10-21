@@ -9,8 +9,8 @@ module.exports = async (req, res) => {
         message: 'Endpoint tidak ditemukan',
         available: [
             '/api/search?query=', '/api/album?id=', '/api/artist?id=',
-            '/api/lyrics?id=', '/api/suggest?q=', '/api/ytplay (POST)',
-            '/api/stream?q=', '/api/proxy-audio?url='
+            '/api/track?id=', '/api/lyrics?id=', '/api/suggest?q=',
+            '/api/ytplay (POST)', '/api/stream?q=', '/api/proxy-audio?url='
         ]
     });
 };

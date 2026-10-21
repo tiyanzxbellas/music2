@@ -99,9 +99,9 @@ const Artist = {
         } else { Artist.close(); }
     },
 
-    trackRow(t, i, fallbackArtist) {
+    trackRow(t, i, fallbackArtist, src) {
         var im = t.thumbnail || FI;
-        return '<div onclick="Artist.play(\'' + t.videoId + '\',\'' + es(t.title).replace(/'/g, "\\'") + '\',\'' + es(t.artist || fallbackArtist || '').replace(/'/g, "\\'") + '\')" class="flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl cursor-pointer active:scale-[0.98] transition-all group">' +
+        return '<div onclick="Artist.playIdx(\'' + (src || 'artist') + '\',' + i + ')" class="flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl cursor-pointer active:scale-[0.98] transition-all group">' +
             '<span class="text-[#6b7280] w-6 text-center text-sm font-medium">' + (i + 1) + '</span>' +
             '<img loading="lazy" src="' + im + '" class="w-12 h-12 rounded-lg object-cover shadow-md" onerror="this.src=\'' + FI + '\'" />' +
             '<div class="flex-1 min-w-0"><p class="font-medium text-sm truncate group-hover:text-[#cfd3d8] transition-colors">' + es(t.title) + '</p>' +
@@ -125,7 +125,18 @@ const Artist = {
         if (!a.tracks || a.tracks.length === 0) {
             html += '<p class="text-center text-[#6b7280] text-sm mt-6">Tidak ada lagu di album ini</p>';
         } else {
-            html += '<div class="space-y-1 px-2">' + a.tracks.map(function (t, i) { return Artist.trackRow(t, i, a.artist); }).join('') + '</div>';
+            // Simpan daftar lagu album supaya next/prev/auto-next ikut jalan
+            S.albumTracks = a.tracks.map(function (t) {
+                return {
+                    id: t.videoId, videoId: t.videoId, type: 'song',
+                    title: t.title, artist: t.artist || a.artist || '',
+                    artistId: t.artistId || a.artistId || '',
+                    cover: t.thumbnail || a.thumbnail || FI,
+                    duration: t.duration || '',
+                    ytUrl: 'https://youtube.com/watch?v=' + t.videoId
+                };
+            });
+            html += '<div class="space-y-1 px-2">' + a.tracks.map(function (t, i) { return Artist.trackRow(t, i, a.artist, 'album'); }).join('') + '</div>';
         }
         gid('artist-content').innerHTML = html;
         lucide.createIcons();
@@ -141,9 +152,19 @@ const Artist = {
 
         if (a.topSongs && a.topSongs.length > 0) {
             html += '<div class="mb-6"><h3 class="font-bold text-sm text-[#b3b3b3] uppercase tracking-wider mb-3 px-4">Lagu Teratas</h3><div class="space-y-1 px-2">';
+            // Simpan daftar lagu teratas supaya next/prev/auto-next ikut jalan
+            S.artistTracks = a.topSongs.slice(0, 10).map(function (s) {
+                var th = s.thumbnails && s.thumbnails.length ? s.thumbnails[s.thumbnails.length - 1].url : FI;
+                return {
+                    id: s.videoId, videoId: s.videoId, type: 'song',
+                    title: s.title, artist: s.artist || a.name, artistId: s.artistId || a.artistId || '',
+                    cover: th, duration: s.duration || '',
+                    ytUrl: 'https://youtube.com/watch?v=' + s.videoId
+                };
+            });
             a.topSongs.slice(0, 10).forEach(function (s, i) {
                 var im = s.thumbnails && s.thumbnails[0] ? s.thumbnails[0].url : FI;
-                html += '<div onclick="Artist.play(\'' + s.videoId + '\',\'' + es(s.title).replace(/'/g, "\\'") + '\',\'' + es(s.artist || a.name).replace(/'/g, "\\'") + '\')" class="flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl cursor-pointer active:scale-[0.98] transition-all group">' +
+                html += '<div onclick="Artist.playIdx(\'artist\',' + i + ')" class="flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl cursor-pointer active:scale-[0.98] transition-all group">' +
                     '<span class="text-[#6b7280] w-6 text-center text-sm font-medium">' + (i + 1) + '</span>' +
                     '<img loading="lazy" src="' + im + '" class="w-12 h-12 rounded-lg object-cover shadow-md" onerror="this.src=\'' + FI + '\'" />' +
                     '<div class="flex-1 min-w-0"><p class="font-medium text-sm truncate group-hover:text-[#cfd3d8] transition-colors">' + es(s.title) + '</p>' +
@@ -158,7 +179,7 @@ const Artist = {
             var cards = list.map(function (it) {
                 var im = it.thumbnails && it.thumbnails.length ? (it.thumbnails[1] || it.thumbnails[0]).url : FI;
                 var click = it.videoId
-                    ? 'Artist.play(\'' + it.videoId + '\',\'' + es(it.name).replace(/'/g, "\\'") + '\',\'' + es(it.artist || a.name).replace(/'/g, "\\'") + '\')'
+                    ? 'Artist.playOne(\'' + it.videoId + '\',\'' + es(it.name).replace(/'/g, "\\'") + '\',\'' + es(it.artist || a.name).replace(/'/g, "\\'") + '\',\'' + im + '\')'
                     : 'Artist.openBrowse(\'' + (it.browseId || '') + '\',\'' + es(it.name).replace(/'/g, "\\'") + '\')';
                 var sub = it.videoId ? es(it.artist || a.name) : (es(it.artist || '') || (round ? 'Artis' : 'Album'));
                 return '<div onclick="' + click + '" class="flex-shrink-0 ' + (round ? 'w-28 text-center' : 'w-36') + ' cursor-pointer group">' +
@@ -190,11 +211,26 @@ const Artist = {
         MP.show();
     },
 
-    play(vid, title, artist) {
+    /** Putar satu lagu lepas (kartu video / carousel) - cover ikut, tidak hilang. */
+    playOne(vid, title, artist, cover) {
         if (!vid) { showToast('⚠️ Lagu tidak tersedia'); return; }
-        S.ct = { id: vid, videoId: vid, title: title, artist: artist, cover: FI, artistId: '', ytUrl: 'https://youtube.com/watch?v=' + vid };
-        S.ps = 'artist'; S.pl = [S.ct]; S.pi = 0; UU(); MP.show(); S.il = true; UB();
+        S.ct = { id: vid, videoId: vid, title: title, artist: artist, cover: cover || FI, artistId: '', ytUrl: 'https://youtube.com/watch?v=' + vid };
+        S.ps = 'queue'; S.pl = [S.ct]; S.pi = 0; UU(); MP.show(); S.il = true; UB();
         resetLyricsUI(vid);
         loadTrack(S.ct);
-    }
+    },
+
+    /** Putar dari daftar album / lagu teratas artis -> antrian + next/prev hidup. */
+    playIdx(key, i) {
+        var list = (key === 'album') ? (S.albumTracks || []) : (S.artistTracks || []);
+        if (!list.length || !list[i]) { showToast('⚠️ Lagu tidak tersedia'); return; }
+        S.ps = (key === 'album') ? 'album' : 'artist';
+        S.pl = list; S.pi = i; S.ct = list[i];
+        UU(); MP.show(); S.il = true; UB();
+        resetLyricsUI(S.ct.videoId);
+        loadTrack(S.ct);
+    },
+
+    /** Kompatibilitas pemanggil lama: Artist.play(videoId, judul, artis). */
+    play(vid, title, artist, cover) { Artist.playOne(vid, title, artist, cover); }
 };

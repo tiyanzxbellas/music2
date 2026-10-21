@@ -10,7 +10,7 @@
  *  - /api/*         : SELALU network (tidak pernah di-cache)
  *  - audio/video/stream & request Range: lewati service worker
  */
-const VERSION = 'musicall-v3';
+const VERSION = 'musicall-v4';
 const SHELL = [
   '/', '/index.html',
   '/app.js', '/player.js', '/home.js', '/search.js',

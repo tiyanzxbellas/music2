@@ -36,6 +36,9 @@ jobs:
       - name: Cek tipe server.ts
         run: npm run typecheck
 
+      - name: Tes logika dua mesin pemutar (tanpa browser)
+        run: npm run test:player
+
       - name: Smoke test endpoint (butuh internet)
         run: npm run smoke
         continue-on-error: true

@@ -19,6 +19,11 @@ const FullPlayer={
                     <div class="flex-1 truncate"><h2 id="full-title" class="text-xl font-bold text-white truncate">Pilih lagu</h2><p id="full-artist" class="text-[#b3b3b3] text-sm truncate cursor-pointer hover:text-[#cfd3d8] mt-0.5" onclick="FullPlayer.openArtist()"></p></div>
                 </div>
                 <div class="mb-2"><div class="relative w-full h-1.5 bg-white/10 rounded-full flex items-center group cursor-pointer"><input type="range" id="seek-bar" min="0" max="100" value="0" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" oninput="SK(this.value)" /><div id="full-progress" class="h-full bg-gradient-to-r from-[#cfd3d8] to-[#e8eaed] rounded-l-full" style="width:0%;box-shadow:0 0 10px rgba(207,211,216,0.5);"><div class="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-xl shadow-[#cfd3d8]/50 opacity-0 group-hover:opacity-100 transition-all"></div></div></div><div class="flex justify-between text-[10px] text-[#6b7280] mt-1"><span id="time-curr">0:00</span><span id="time-dur">0:00</span></div></div>
+                <div class="mt-2 mb-1 flex items-center gap-3">
+                    <button onclick="toggleMute()" id="volume-icon-wrap" class="text-[#a0a5b0] hover:text-white active:scale-90 p-1" title="Bisukan / nyalakan suara"><i data-lucide="volume-2" class="w-5 h-5"></i></button>
+                    <input id="volume-slider" type="range" min="0" max="100" step="1" value="100" oninput="setVolume(this.value)" class="flex-1 h-1.5 cursor-pointer" style="accent-color:#cfd3d8;" aria-label="Volume" />
+                    <span id="volume-label" class="text-[10px] text-[#6b7280] font-mono w-9 text-right">100%</span>
+                </div>
             </div>
             <!-- Premium Utility Bar -->
             <div class="relative z-10 px-6 flex items-center gap-5 mb-4 flex-shrink-0 border-t border-b border-white/5 py-2 overflow-x-auto hide-scrollbar">
@@ -54,6 +59,7 @@ const FullPlayer={
             </div>
             <div class="relative z-10 px-8 flex items-center justify-between mb-6 flex-shrink-0">
                 <button onclick="toggleAutoNext()" class="text-[#6b7280] hover:text-[#cfd3d8] active:scale-90 p-2 transition-all duration-200" title="Auto Next"><i data-lucide="list-end" class="w-5 h-5"></i></button>
+                <button onclick="toggleShuffle()" id="btn-shuffle" class="relative text-[#6b7280] hover:text-white active:scale-90 p-2 transition-all" title="Acak Urutan"><i data-lucide="shuffle" class="w-5 h-5"></i><div id="shuffle-dot" class="hidden absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#cfd3d8] rounded-full"></div></button>
                 <button onclick="PV()" class="text-white/80 hover:text-white active:scale-90 p-2 transition-all"><i data-lucide="skip-back" class="w-7 h-7 fill-current"></i></button>
                 <button onclick="TP()" id="full-play-btn-wrap" class="relative bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-full p-4 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-black/30" style="width:60px;height:60px;"><div id="full-play-btn" class="absolute inset-0 flex items-center justify-center"><i data-lucide="play" class="w-7 h-7 fill-current ml-0.5"></i></div></button>
                 <button onclick="NX()" class="text-white/80 hover:text-white active:scale-90 p-2 transition-all"><i data-lucide="skip-forward" class="w-7 h-7 fill-current"></i></button>
@@ -77,7 +83,7 @@ const FullPlayer={
         </div>`;
         lucide.createIcons();
     },
-    open(){var fp=gid('full-player');fp.style.display='flex';document.body.style.overflow='hidden';document.body.style.position='fixed';document.body.style.width='100%';requestAnimationFrame(function(){fp.style.transform='translateY(0)';});MP.hide();try{updateSleepBadge();updateSpeedBadge();}catch(e){}},
+    open(){var fp=gid('full-player');fp.style.display='flex';document.body.style.overflow='hidden';document.body.style.position='fixed';document.body.style.width='100%';requestAnimationFrame(function(){fp.style.transform='translateY(0)';});MP.hide();try{updateSleepBadge();updateSpeedBadge();applyVolume();syncShuffleUI();}catch(e){}},
     close(){var fp=gid('full-player');fp.style.transform='translateY(100%)';document.body.style.overflow='';document.body.style.position='';document.body.style.width='';setTimeout(function(){fp.style.display='none';MP.show();},350);},
     openArtist(){if(S.ct&&S.ct.artistId){FullPlayer.close();setTimeout(function(){Artist.open(S.ct.artistId,S.ct.artist);},400);}}
 };

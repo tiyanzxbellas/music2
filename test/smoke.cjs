@@ -107,6 +107,23 @@ async function call(name, query, method) {
   }
   check('tanpa url -> 400', (await call('proxy-audio', {})).code === 400);
 
+  console.log('\n# track (metadata dari videoId - dipakai share link)');
+  r = await call('track', { id: 'kJQP7kiw5Fk' });
+  check('track 200 + judul', r.code === 200 && !!(r.body.result && r.body.result.title), r.code);
+  check('track judul cocok dengan videonya (bukan hasil teks acak)',
+    !!(r.body.result && /despacito/i.test(r.body.result.title)), r.body.result && r.body.result.title);
+  check('track punya thumbnail', !!(r.body.result && r.body.result.thumbnail));
+  check('track id ngawur -> 400', (await call('track', { id: 'bukanid' })).code === 400);
+
+  console.log('\n# tempel link YouTube ke pencarian');
+  r = await call('search', { query: 'https://www.youtube.com/watch?v=kJQP7kiw5Fk' });
+  check('search link -> mode direct', !!(r.body.result && r.body.result.direct), r.body.result && r.body.result.direct);
+  check('search link -> 1 hasil dengan videoId yang sama',
+    !!(r.body.result && r.body.result.items && r.body.result.items.length === 1 &&
+       r.body.result.items[0].videoId === 'kJQP7kiw5Fk'));
+  check('search link -> judul ikut video (Despacito)',
+    !!(r.body.result && r.body.result.items && /despacito/i.test(r.body.result.items[0].title)));
+
   console.log('\n# suggest');
   r = await call('suggest', { q: 'tulus' });
   check('suggest 200', r.code === 200, r.code);

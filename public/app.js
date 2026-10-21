@@ -75,25 +75,30 @@ const App={
         if(play){if(isShared){App.showSharePopup(play);}else{App.autoPlayTrack(play);}}
         else if(search){setTimeout(function(){var si=gid('search-input');if(si){si.value=decodeURIComponent(search);gid('search-form').dispatchEvent(new Event('submit'));}App.switch('search');},300);}
     },
+    trackMeta(videoId){
+        return fetch('/api/track?id='+encodeURIComponent(videoId))
+            .then(function(r){return r.json();})
+            .then(function(d){return (d&&d.status&&d.result)?d.result:null;})
+            .catch(function(){return null;});
+    },
     autoPlayTrack(videoId){
-        fetch(API.search+'?query=https://youtube.com/watch?v='+videoId).then(function(r){return r.json();}).then(function(d){
-            var title='Lagu',artist='NanzMusify',cover=FI,artistId='';
-            if(d.status&&d.result.songs&&d.result.songs.length>0){var song=d.result.songs[0];title=cn(song.title);artist=cn(song.artist);cover=song.thumbnail||FI;artistId=song.artistId||'';}
+        App.trackMeta(videoId).then(function(m){
+            var title=(m&&m.title)?cn(m.title):'Lagu';
+            var artist=(m&&m.artist)?cn(m.artist):'Musicall';
+            var cover=(m&&m.thumbnail)||FI;
+            var artistId=(m&&m.artistId)||'';
             S.ct={id:videoId,videoId:videoId,title:title,artist:artist,cover:cover,artistId:artistId,ytUrl:'https://youtube.com/watch?v='+videoId};
-            S.ps='direct';S.pl=[S.ct];S.pi=0;UU();MP.show();resetLyricsUI(videoId);
-            setTimeout(function(){FullPlayer.open();loadTrack(S.ct);},400);
-        }).catch(function(){
-            S.ct={id:videoId,videoId:videoId,title:'Lagu',artist:'NanzMusify',cover:FI,artistId:'',ytUrl:'https://youtube.com/watch?v='+videoId};
-            S.ps='direct';S.pl=[S.ct];S.pi=0;UU();MP.show();resetLyricsUI(videoId);
+            S.ps='queue';S.pl=[S.ct];S.pi=0;UU();MP.show();resetLyricsUI(videoId);
             setTimeout(function(){FullPlayer.open();loadTrack(S.ct);},400);
         });
     },
     showSharePopup(videoId){
-        fetch(API.search+'?query=https://youtube.com/watch?v='+videoId).then(function(r){return r.json();}).then(function(d){
-            var title='Lagu',artist='NanzMusify',cover=FI;
-            if(d.status&&d.result.songs&&d.result.songs.length>0){var song=d.result.songs[0];title=cn(song.title);artist=cn(song.artist);cover=song.thumbnail||FI;}
-            App.renderPopup(videoId,title,artist,cover);
-        }).catch(function(){App.renderPopup(videoId,'Lagu','NanzMusify',FI);});
+        App.trackMeta(videoId).then(function(m){
+            App.renderPopup(videoId,
+                (m&&m.title)?cn(m.title):'Lagu',
+                (m&&m.artist)?cn(m.artist):'Musicall',
+                (m&&m.thumbnail)||FI);
+        });
     },
     renderPopup(videoId,title,artist,cover){
         var popup=document.createElement('div');popup.className='fixed inset-0 z-[300] flex items-end justify-center bg-black/60';

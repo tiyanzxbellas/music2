@@ -1,6 +1,6 @@
 {
   "name": "musicall",
-  "version": "3.1.1",
+  "version": "3.2.0",
   "private": true,
   "description": "Musicall - pemutar musik YouTube Music (streaming audio, lirik sinkron, equalizer, playlist) tanpa API key.",
   "main": "server.ts",
@@ -9,7 +9,8 @@
     "build": "rm -rf dist && mkdir -p dist && cp -r public/* dist/",
     "start": "tsx server.ts",
     "smoke": "node test/smoke.cjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:player": "node test/player-logic.cjs"
   },
   "keywords": [
     "music",

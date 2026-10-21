@@ -128,6 +128,24 @@ Semua endpoint mengembalikan JSON. `status: true|false`, `message` saat error.
 Pembagian tab: **Lagu** = `song`, **Video** = `video`, **Album** = `album` + `single` + `ep`
 (rilisan album-like), **Artis** = `artist` + `profile`.
 
+### `GET /api/track?id=<videoId>`
+
+Metadata satu lagu dari videoId — dipakai fitur **share link** (`?play=<videoId>`) dan saat user
+menempel link YouTube ke kolom pencarian. Dulu judul/cover diambil dari hasil pencarian teks
+(link YouTube dianggap kata kunci), jadi yang tampil bisa lagu yang salah.
+
+```json
+{ "status": true, "result": {
+    "videoId": "kJQP7kiw5Fk", "title": "Despacito",
+    "artist": "Luis Fonsi & Daddy Yankee", "artistId": "",
+    "album": "", "duration": "4:42",
+    "thumbnail": "https://i.ytimg.com/vi/kJQP7kiw5Fk/hq720.jpg…"
+} }
+```
+
+`/api/search?query=<link YouTube atau videoId>` sekarang mendeteksi link/videoId dan membalas
+`result.direct: true` berisi satu item yang benar (bukan hasil pencarian teks).
+
 ### `GET /api/album?id=MPRE…|VL…`
 Tracklist album/single/playlist (`MPRE…` album & single, `VL…` playlist/radio).
 
@@ -177,6 +195,34 @@ Bentuk kompatibel endpoint lama: `{ status, result: { url, proxy, type: "mp3" } 
 ### `GET /api/proxy-audio?url=…`
 Streaming audio dengan dukungan `Range` (206). **Hanya** host `*.savetube.vip`, `*.googlevideo.com`,
 dan `*.lexcode.biz.id`; host lain, IP privat, dan port non-standar ditolak `403`.
+
+## Dua mesin pemutar: Server 1 vs Server 2
+
+Aplikasi punya dua mesin pemutaran, bisa diganti dari tombol ⚙️ di beranda
+(**Pengaturan Server**). Pilihan disimpan di `localStorage` (`nanzz_server`) dan berlaku
+untuk semua halaman.
+
+| Fitur | Server 1 (YouTube iframe) | Server 2 (elemen `<audio>`) |
+|---|---|---|
+| Putar / jeda | ✅ | ✅ |
+| Next / Prev / Auto-next | ✅ | ✅ |
+| Geser waktu (seek) & progres | ✅ | ✅ |
+| Ulangi (off / semua / satu lagu) | ✅ | ✅ |
+| **Acak (shuffle)** | ✅ | ✅ |
+| **Volume + mute** | ✅ (`setVolume` YT) | ✅ (`audio.volume`) |
+| Lirik + highlight sinkron | ✅ | ✅ |
+| Seek dari baris lirik | ✅ | ✅ |
+| Koreksi sinkron lirik (+/−) | ✅ | ✅ |
+| Timer tidur | ✅ | ✅ |
+| Kecepatan putar (0.5×–2×) | ✅ | ✅ |
+| Antrian (dari album/artis/playlist) | ✅ | ✅ |
+| Equalizer + preset + visualizer | ⚠️ tidak bisa (audio ada di dalam iframe YouTube) — tombolnya memberi penjelasan + tawaran pindah ke Server 2 | ✅ |
+| Unduh MP3 / share card / playlist | ✅ (tidak tergantung server) | ✅ |
+| Jalan saat layar mati / background | ⚠️ sering dihentikan browser (butuh izin notifikasi; tetap tidak dijamin) | ✅ |
+| Gagal memutar lagu | otomatis dialihkan ke Server 2 untuk lagu itu (setelanmu tidak diubah) | otomatis coba lewat proxy → ambil ulang link audio → baru menyerah |
+
+Catatan: pemilihan server adalah **preferensi**. Kalau Server 1 gagal memutar satu lagu,
+engine pindah sementara ke Server 2 tanpa menimpa pilihanmu di Pengaturan Server.
 
 ## Catatan teknis penting
 
@@ -228,6 +274,26 @@ Hasil pemeriksaan ulang seluruh handler terhadap respons live YouTube Music (202
 | 5 | Subtitle album di halaman artis cuma tahun | `topAlbums[0].artist = "2022"` | dinormalisasi jadi `Album • 2022` + field `year` |
 | 6 | Lirik sampah dari LRCLIB tampil apa adanya | `dQw4w9WgXcQ` → 1 baris `"probe"` | lirik < 3 baris / < 30 karakter dianggap tidak layak, lanjut ke kandidat berikutnya |
 | 7 | Smoke test cuma mencetak hasil (regresi tidak ketahuan) | CI hijau walau handler rusak | `test/smoke.cjs` ditulis ulang: **44 pemeriksaan ber-assert**, exit code ≠ 0 kalau gagal |
+
+## Perbaikan versi 3.2.0
+
+Audit ulang khusus **kesetaraan fitur Server 1 & Server 2** (2026-10-21):
+
+| # | Masalah | Bukti sebelum | Perbaikan |
+|---|---|---|---|
+| 1 | Server 1 yang gagal memutar **menimpa setelan user** jadi Server 2 permanen | `loadTrack()` menulis `S.server='2'` + `localStorage` saat fallback | engine aktif (`S.engine`) dipisah dari preferensi (`S.server`); fallback hanya mengalihkan lagu itu + `ytDegraded` untuk sesi berjalan |
+| 2 | Server 1 **tanpa penanganan error** — video dibatasi/dihapus = spinner berputar selamanya | event YT cuma `onReady` + `onStateChange` | tambah `onError` → `ytFailed()` → dialihkan ke Server 2 + toast berisi kode error |
+| 3 | Server 2 gagal mutar hanya kasih toast, tidak ada usaha lanjut | `AU.addEventListener('error')` → toast | pemulihan berantai: putar ulang lewat proxy (posisi dipertahankan) → ambil ulang link audio → baru menyerah (maks 2 percobaan) |
+| 4 | `/api/ytplay` dipanggil **tanpa timeout** — kalau upstream hang, spinner menggantung | `await fetch(...)` tanpa `AbortSignal` | `AbortController` 25 s + pesan spesifik ("Server terlalu lama merespons") |
+| 5 | Equalizer di Server 1 **diam saja** (slider digeser, tidak ada efek) | `if (S.server === '2')` lalu lanjut membuka UI | UI tidak dibuka; muncul penjelasan + tombol "Pindah ke Server 2 & buka Equalizer" |
+| 6 | **Shuffle tidak ada tombolnya** (fungsi `SF()` mati) | 0 pemanggil di UI | tombol acak di full player + indikator, `NX()` menghormati shuffle |
+| 7 | **Tidak ada kontrol volume sama sekali** | hanya ikon dekoratif di daftar antrian | slider volume + tombol mute di full player, tersimpan di `localStorage`, berlaku di dua server |
+| 8 | Main lagu dari album/artis: **cover hilang** & antrian cuma 1 lagu (next/auto-next mati) | `Artist.play()` menulis `cover: FI`, `S.pl=[S.ct]` | `playIdx()` memakai daftar album/lagu teratas → antrian benar; `playOne()` membawa cover |
+| 9 | Share link (`?play=`) menampilkan **judul lagu lain** | metadata dicari dengan query berupa URL → hasil acak | endpoint `/api/track?id=` + `result.direct` pada `/api/search` |
+| 10 | Lirik di-fetch ulang dengan cache-buster acak tiap lagu | `?id=…&t=Date.now()` | cache server (24 jam) dipakai, hemat request, lirik tetap sama |
+
+Tes: `test/player-logic.cjs` (29 pemeriksaan logika dua mesin, tanpa browser) + `npm run smoke`
+(sekarang 45 pemeriksaan, termasuk `/api/track` dan "tempel link YouTube").
 
 ## Batasan & catatan hukum
 

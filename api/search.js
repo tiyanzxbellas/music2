@@ -8,7 +8,8 @@
  *
  * Kompatibilitas: `result.songs` tetap ada (daftar lagu/video) untuk kode lama.
  */
-const { httpJSON, ttlCache, applyCors, errJson, UA } = require('./_lib/core');
+const { httpJSON, ttlCache, applyCors, errJson, UA, extractVideoId } = require('./_lib/core');
+const { getTrack } = require('./_lib/trackinfo');
 
 const cache = ttlCache(120, 10 * 60 * 1000);
 
@@ -135,6 +136,27 @@ module.exports = async (req, res) => {
 
     const query = String(req.query.query || req.query.q || '').trim();
     if (!query) return errJson(res, 400, 'Parameter query diperlukan');
+
+    // User menempel link YouTube (atau videoId) -> jangan cari teks, ambil metadata video itu.
+    const directId = extractVideoId(query);
+    if (directId) {
+        try {
+            const t = await getTrack(directId);
+            if (t && t.title) {
+                const item = {
+                    type: 'song', title: t.title, videoId: directId, browseId: '',
+                    thumbnail: t.thumbnail, url: 'https://music.youtube.com/watch?v=' + directId,
+                    artist: t.artist, artistId: t.artistId, album: t.album, albumId: '',
+                    duration: t.duration, plays: '', subtitle: t.artist
+                };
+                res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600');
+                return res.status(200).json({
+                    status: true,
+                    result: { query, filter: 'all', total: 1, cached: false, direct: true, items: [item], songs: [item] }
+                });
+            }
+        } catch (e) { /* lanjut ke pencarian biasa */ }
+    }
 
     let filter = String(req.query.filter || 'all').toLowerCase();
     if (FILTER_ALIAS[filter]) filter = FILTER_ALIAS[filter];

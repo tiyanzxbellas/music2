@@ -159,7 +159,9 @@ const Search = {
 
     apply() {
         var f = S.filter || 'all';
-        var match = { all: null, songs: ['song', 'single'], videos: ['video'], albums: ['album', 'single'], artists: ['artist', 'profile'] };
+        // Samakan dengan FILTER_MAP di api/search.js: "single"/"ep" = rilisan album-like,
+        // jadi masuk tab Album (dulu ikut tab Lagu sehingga isi tiap tab tidak konsisten).
+        var match = { all: null, songs: ['song'], videos: ['video'], albums: ['album', 'single', 'ep'], artists: ['artist', 'profile'] };
         var allow = match[f];
         // Daftar tampil = daftar yang diputar (index PK konsisten)
         S.sr = allow ? (S.ar || []).filter(function (t) { return allow.indexOf(t.type) !== -1; }) : (S.ar || []);
