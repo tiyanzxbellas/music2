@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependency
+        run: npm install --no-audit --no-fund
+
+      - name: Validasi JSON (package, vercel, tsconfig, manifest)
+        run: |
+          node -e "
+          const fs=require('fs');
+          for (const f of ['package.json','vercel.json','tsconfig.json','public/manifest.json']) {
+            JSON.parse(fs.readFileSync(f,'utf8')); console.log('ok', f);
+          }"
+
+      - name: Cek sintaks semua file JS
+        run: |
+          for f in api/*.js api/_lib/*.js public/*.js test/*.cjs; do
+            node --check "$f" && echo "ok $f"
+          done
+
+      - name: Cek tipe server.ts
+        run: npm run typecheck
+
+      - name: Smoke test endpoint (butuh internet)
+        run: npm run smoke
+        continue-on-error: true
