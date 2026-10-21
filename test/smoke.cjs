@@ -37,7 +37,10 @@ async function call(name, query, method) {
   check('search item punya type', items.every((i) => !!i.type), items[0] && items[0].type);
   const counts = {};
   for (const f of ['songs', 'videos', 'albums', 'artists']) {
-    const q = await call('search', { query: 'tulus', filter: f });
+    // YouTube Music kadang mengosongkan satu shelf (transient) -> coba ulang
+    // sekali. Kalau tetap kosong, baru dianggap gagal.
+    let q = await call('search', { query: 'tulus', filter: f });
+    if (!(q.body.result && q.body.result.total > 0)) q = await call('search', { query: 'tulus', filter: f });
     const tot = q.body.result ? q.body.result.total : -1;
     counts[f] = tot;
     check('filter ' + f + ' menyaring (total > 0)', tot > 0, tot);
