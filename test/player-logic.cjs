@@ -59,8 +59,7 @@ function makeWorld() {
         navigator: {}, lucide: { createIcons() {} },
         MP: { show() {}, hide() {}, dismiss() {}, restore() {} },
         YT: { Player: function () { return {}; } },
-        fetch: async () => { throw new Error('fetch belum di-stub'); },
-        Notification: undefined
+        fetch: async () => { throw new Error('fetch belum di-stub'); }
     };
     sandbox.window = sandbox;
     sandbox.globalThis = sandbox;
@@ -100,6 +99,14 @@ function makeWorld() {
     ok('ytFailed -> tandai ytDegraded', S.ytDegraded === true);
     ok('ytFailed -> langsung diputar di Server 2', fb && fb.t === S.ct);
     ok('ytFailed -> ada toast penjelasan', toasts.some((m) => /Server 2/.test(m)));
+
+    // 2b. user menekan "Server 1" saat engine sedang dialihkan -> harus benar-benar kembali
+    sandbox.playViaServer2 = () => {};
+    S.yp = { stopVideo() {}, loadVideoById() {}, seekTo() {} }; S.yr = true;
+    sandbox.setServer('1');
+    ok('setServer(1) saat engine dialihkan -> engine balik ke 1 + degraded reset',
+        S.engine === '1' && S.ytDegraded === false, 'engine=' + S.engine);
+    S.engine = '2'; S.ytDegraded = true; S.yp = { stopVideo() {} }; S.yr = false;
 
     // 3. lagu berikutnya saat degraded tidak mencoba Server 1 lagi
     S.engine = '1'; S.ytDegraded = true;

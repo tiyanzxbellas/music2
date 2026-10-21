@@ -292,7 +292,7 @@ Audit ulang khusus **kesetaraan fitur Server 1 & Server 2** (2026-10-21):
 | 9 | Share link (`?play=`) menampilkan **judul lagu lain** | metadata dicari dengan query berupa URL → hasil acak | endpoint `/api/track?id=` + `result.direct` pada `/api/search` |
 | 10 | Lirik di-fetch ulang dengan cache-buster acak tiap lagu | `?id=…&t=Date.now()` | cache server (24 jam) dipakai, hemat request, lirik tetap sama |
 
-Tes: `test/player-logic.cjs` (29 pemeriksaan logika dua mesin, tanpa browser) + `npm run smoke`
+Tes: `test/player-logic.cjs` (30 pemeriksaan logika dua mesin, tanpa browser) + `npm run smoke`
 (sekarang 45 pemeriksaan, termasuk `/api/track` dan "tempel link YouTube").
 
 ## Batasan & catatan hukum

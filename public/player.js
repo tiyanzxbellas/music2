@@ -122,16 +122,21 @@ function loadTrack(track,resumeAt){
             S.yp.loadVideoById({videoId:track.videoId});
             if(resumeAt)try{S.yp.seekTo(resumeAt,true);}catch(e){}
             
-            // Set timeout 4 detik untuk fallback jika player tidak mulai play
-            ytFallbackTimeout=setTimeout(function(){
-                if(S.ct===track && !S.ip){
+            // Fallback ke Server 2 kalau pemutar YouTube tidak kunjung berbunyi.
+            // Kalau masih buffering (state 3) diberi satu kesempatan lagi dulu,
+            // supaya jaringan lambat tidak langsung dipindah server.
+            var armYtFallback=function(ms,sisaBuffering){
+                ytFallbackTimeout=setTimeout(function(){
+                    if(S.ct!==track||S.ip)return;
+                    if(S.il&&sisaBuffering>0){armYtFallback(5000,sisaBuffering-1);return;}
                     console.log('YouTube Player gagal memutar, mengalihkan ke Server 2...');
                     S.ytDegraded=true;S.engine='2';
                     showToast('⚡ Server 1 tidak bisa memutar lagu ini — dialihkan ke Server 2 (pengaturanmu tidak diubah)');
                     try{S.yp.stopVideo();}catch(e){}
                     playViaServer2(track,resumeAt);
-                }
-            },4000);
+                },ms);
+            };
+            armYtFallback(4000,1);
         }else{
             // Jika YouTube Player belum siap atau diblokir, langsung pakai Server 2!
             console.log('YouTube Player belum siap, menggunakan Server 2...');
@@ -249,11 +254,13 @@ function shareTrack(){if(!S.ct||!S.ct.videoId)return;var url=location.origin+'/?
 // PENGATURAN SERVER PEMUTAR
 // ============================================================
 function setServer(v){
-    if(S.server===v){closeServerSettings();return;}
+    // Kalau engine sedang dialihkan sementara (fallback), menekan server yang sama
+    // tetap harus dijalankan supaya user bisa memaksa kembali ke pilihannya.
+    if(S.server===v&&S.engine===v){closeServerSettings();return;}
     var prevTime=S.pt||0,hadTrack=!!S.ct;
     S.server=v;S.engine=v;S.ytDegraded=false;
     try{localStorage.setItem('nanzz_server',v);}catch(e){}
-    if(v==='1'&&'Notification' in window&&Notification.permission==='default'){
+    if(v==='1'&&typeof Notification!=='undefined'&&Notification.permission==='default'){
         Notification.requestPermission().then(function(perm){
             if(perm==='granted')showToast('✅ Izin notifikasi diberikan');
             else showToast('⚠️ Tanpa izin notifikasi, pemutaran di background bisa terhenti');
